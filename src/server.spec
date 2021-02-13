@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['server.py'],
-             pathex=['/home/sam/bin/0_packaged_programs/hungry_pythons'],
+             pathex=['/home/sam/bin/0_packaged_programs/hungry_pythons/src'],
              binaries=[],
              datas=[],
              hiddenimports=['pkg_resources.py2_warn','gutil','netstring'],

@@ -36,12 +36,10 @@ jobs:
 
       - name: PyInstaller Mac Client
         run:
-          python3 -m pyinstaller src/client2.spec
-          #-i icon.icns
+          python3 -m PyInstaller src/client2.spec
       - name: PyInstaller Mac Server
         run:
-          python3 -m pyinstaller] src/server.spec
-          #-i icon.icns
+          python3 -m PyInstaller src/server.spec
       
       - name: Echo directory
         run: ls src/dist/

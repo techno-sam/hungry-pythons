@@ -4,6 +4,8 @@ import pygame
 
 import sys
 
+import os
+
 import math
 
 import queue
@@ -23,6 +25,11 @@ import socket
 import gutil
 
 import colorsys
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 
 
 '''thread use:
@@ -91,7 +98,7 @@ color_precision = 3
 segImQueue = queue.Queue()
 def segImGen():
     import pygame, colorsys
-    img = pygame.image.load("./segment.png")
+    img = pygame.image.load(resource_path("segment.png"))
     img = pygame.transform.scale(img,(30,30))
     global color_precision
     dec_digs = color_precision
@@ -216,8 +223,8 @@ head_images = {}
 
 global head_rot
 head_rot = 0
-head_img = pygame.image.load("./head.png")
-seg_img = pygame.image.load("./segment.png")
+head_img = pygame.image.load(resource_path("head.png"))
+seg_img = pygame.image.load(resource_path("segment.png"))
 seg_color = (240,10,128)
 seg_hue = colorsys.rgb_to_hsv(*seg_color)[0]
 seg_hue = 268/360

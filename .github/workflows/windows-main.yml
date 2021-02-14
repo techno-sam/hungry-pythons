@@ -41,8 +41,8 @@ jobs:
           python3 -m PyInstaller src/server.spec
       - name: Echo
         run: |
-        ls
-        ls dist
+          ls
+          ls dist
       - uses: actions/upload-artifact@v2
         with:
           name: packaged-binaries

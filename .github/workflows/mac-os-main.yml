@@ -33,7 +33,6 @@ jobs:
           python3 -m pip install pygame==1.9.6
           python3 -c "import pygame;print('hello')"
           pip install -r src/requirements.txt
-          pip install -e .
 
       - name: PyInstaller Mac Client
         run:

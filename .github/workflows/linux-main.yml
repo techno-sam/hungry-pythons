@@ -61,7 +61,7 @@ jobs:
       #zip up files
       - uses: papeloto/action-zip@v1
         with:
-          files: src/dist/linux/client2 src/dist/linux/server head.png segment.png
+          files: src/dist/linux/client2 src/dist/linux/server head.png segment.png README.md
           dest: linux_binaries.zip
       #auto release
       - uses: "marvinpinto/action-automatic-releases@latest"
@@ -71,5 +71,5 @@ jobs:
           prerelease: true
           title: "Development Build - Linux"
           files: |
-            LICENSE.txt
+            LICENSE
             linux_binaries.zip

@@ -48,7 +48,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
         with:
           tag_name: ${{ github.ref }}
-          release_name: Automatic Release ${{github.commit}} ${{ github.ref }}
+          release_name: Automatic Release ${GITHUB_REF#refs/heads/}.${GITHUB_SHA} ${{ github.ref }}
           body: |
             This is an automatic release, generated when this repo is pushed to, and as such may be broken or buggy beyond other releases.
           draft: false

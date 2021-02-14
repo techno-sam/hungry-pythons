@@ -3,7 +3,6 @@
 import pygame
 
 import sys
-#sys.path.append('/home/USER/bin')
 
 import math
 

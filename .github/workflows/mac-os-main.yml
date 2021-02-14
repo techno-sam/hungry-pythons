@@ -33,9 +33,6 @@ jobs:
           python3 -m pip install pygame==1.9.6
           python3 -c "import pygame;print('hello')"
           pip install -r src/requirements.txt
-          pyi-makespec src/client2.py
-          ls
-          less client2.spec
 
       - name: PyInstaller Mac Client
         run:

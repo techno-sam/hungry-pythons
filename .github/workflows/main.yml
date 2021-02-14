@@ -40,3 +40,27 @@ jobs:
         with:
           name: packaged-client
           path: src/dist/linux
+      # add release
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Automatic Release ${{ github.ref }}
+          body: |
+            This is an automatic release, generated when this repo is pushed to, and as such may be broken or buggy beyond other releases.
+          draft: false
+          prerelease: true
+      #upload release
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: src/dist/linux
+          asset_name: packaged-client
+          asset_content_type: application

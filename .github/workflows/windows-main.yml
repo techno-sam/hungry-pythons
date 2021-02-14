@@ -16,7 +16,7 @@ jobs:
   # This workflow contains a single job called "build"
   build:
     # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -35,19 +35,19 @@ jobs:
           python3 -m pip install pygame==1.9.6
           python3 -c "import pygame;print('hello')"
 
-      - name: PyInstaller Linux Client
+      - name: PyInstaller Windows Client
         # You may pin to the exact commit or the version.
         # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
-        uses: JackMcKew/pyinstaller-action-linux@main
+        uses: JackMcKew/pyinstaller-action-windows@main
         with:
           # Directory containing source code & .spec file (optional requirements.txt).
           path: src # default is src
           # Specify a file path for .spec file
           spec: client2.spec # optional, default is
-      - name: PyInstaller Linux Server
+      - name: PyInstaller Windows Server
         # You may pin to the exact commit or the version.
         # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
-        uses: JackMcKew/pyinstaller-action-linux@main
+        uses: JackMcKew/pyinstaller-action-windows@main
         with:
           # Directory containing source code & .spec file (optional requirements.txt).
           path: src # default is src
@@ -56,22 +56,22 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: packaged-binaries
-          path: src/dist/linux
+          path: src/dist/windows
       
       - name: Echo directory
-        run: ls src/dist/linux
+        run: ls src/dist/windows
       #zip up files
       - uses: papeloto/action-zip@v1
         with:
-          files: src/dist/linux/client2 src/dist/linux/server head.png segment.png
-          dest: linux_binaries.zip
+          files: src/dist/windows/client2 src/dist/windows/server head.png segment.png
+          dest: windows_binaries.zip
       #auto release
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
+          automatic_release_tag: "latest-windows"
           prerelease: true
-          title: "Development Build"
+          title: "Development Build - Windows"
           files: |
             LICENSE.txt
-            linux_binaries.zip
+            windows_binaries.zip

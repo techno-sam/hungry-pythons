@@ -43,3 +43,15 @@ jobs:
       
       - name: Echo directory
         run: ls src/dist/linux
+      #auto release
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Development Build"
+          files: |
+            LICENSE.txt
+            src/dist/linux/client2
+            head.png
+            segment.png

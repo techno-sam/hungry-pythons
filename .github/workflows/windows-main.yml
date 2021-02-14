@@ -46,14 +46,14 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: packaged-binaries
-          path: src/dist/windows
+          path: dist
       
       - name: Echo directory
-        run: ls src/dist/windows
+        run: ls dists
       #zip up files
       - uses: papeloto/action-zip@v1
         with:
-          files: src/dist/windows/client2 src/dist/windows/server head.png segment.png
+          files: dist/client2.exe dist/server.exe head.png segment.png
           dest: windows_binaries.zip
       #auto release
       - uses: "marvinpinto/action-automatic-releases@latest"
@@ -100,14 +100,14 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: packaged-binaries-x86
-          path: src/dist/windows
+          path: dist
       
       - name: Echo directory
-        run: ls src/dist/windows
+        run: ls dist
       #zip up files
       - uses: papeloto/action-zip@v1
         with:
-          files: src/dist/windows/client2 src/dist/windows/server head.png segment.png
+          files: dist/client2.exe dist/server.exe head.png segment.png
           dest: windows_binaries_x86.zip
       #auto release
       - uses: "marvinpinto/action-automatic-releases@latest"

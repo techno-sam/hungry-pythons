@@ -13,7 +13,7 @@ jobs:
   # This workflow contains a single job called "build"
   build:
     # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -31,25 +31,18 @@ jobs:
           python -m pip install --upgrade pip
           python3 -m pip install pygame==1.9.6
           python3 -c "import pygame;print('hello')"
+          pip install -r src/requirements.txt
 
       - name: PyInstaller Windows Client
-        # You may pin to the exact commit or the version.
-        # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
-        uses: JackMcKew/pyinstaller-action-windows@main
-        with:
-          # Directory containing source code & .spec file (optional requirements.txt).
-          path: src # default is src
-          # Specify a file path for .spec file
-          spec: client2.spec # optional, default is
+        run:
+          python3 -m PyInstaller src/client2.spec
       - name: PyInstaller Windows Server
-        # You may pin to the exact commit or the version.
-        # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
-        uses: JackMcKew/pyinstaller-action-windows@main
-        with:
-          # Directory containing source code & .spec file (optional requirements.txt).
-          path: src # default is src
-          # Specify a file path for .spec file
-          spec: server.spec # optional, default is
+        run:
+          python3 -m PyInstaller src/server.spec
+      - name: Echo
+        run: |
+        ls
+        ls dist
       - uses: actions/upload-artifact@v2
         with:
           name: packaged-binaries
@@ -74,7 +67,7 @@ jobs:
             windows_binaries.zip
   build-x86:
     # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -92,25 +85,18 @@ jobs:
           python -m pip install --upgrade pip
           python3 -m pip install pygame==1.9.6
           python3 -c "import pygame;print('hello')"
+          pip install -r src/requirements.txt
 
       - name: PyInstaller Windows Client
-        # You may pin to the exact commit or the version.
-        # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
-        uses: JackMcKew/pyinstaller-action-windows@main
-        with:
-          # Directory containing source code & .spec file (optional requirements.txt).
-          path: src # default is src
-          # Specify a file path for .spec file
-          spec: client2.spec # optional, default is
+        run:
+          python3 -m PyInstaller src/client2.spec
       - name: PyInstaller Windows Server
-        # You may pin to the exact commit or the version.
-        # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
-        uses: JackMcKew/pyinstaller-action-windows@main
-        with:
-          # Directory containing source code & .spec file (optional requirements.txt).
-          path: src # default is src
-          # Specify a file path for .spec file
-          spec: server.spec # optional, default is
+        run:
+          python3 -m PyInstaller src/server.spec
+      - name: Echo
+        run: |
+        ls
+        ls dist
       - uses: actions/upload-artifact@v2
         with:
           name: packaged-binaries-x86

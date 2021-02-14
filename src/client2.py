@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+import pygame
+
 import sys
 #sys.path.append('/home/USER/bin')
 

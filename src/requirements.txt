@@ -1,7 +1,6 @@
 future==0.18.2
 numpy==1.18.4
 pyinstaller @ https://github.com/pyinstaller/pyinstaller/archive/develop.zip
-pywin32-ctypes==0.2.0
 threading
 json
 socketserver

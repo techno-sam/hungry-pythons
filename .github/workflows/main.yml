@@ -26,6 +26,13 @@ jobs:
       # Runs a single command using the runners shell
       - name: Run a one-line script
         run: echo Hello, world!
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.6' # Version range or exact version of a Python version to use, using SemVer's version range syntax
+          architecture: 'x64' # optional x64 or x86. Defaults to x64 if not specified
+      - run: |
+          python -m pip install --upgrade pip
+          python3 -m pip install pygame==2.0.0.dev12
 
       - name: PyInstaller Linux
         # You may pin to the exact commit or the version.

@@ -43,6 +43,11 @@ jobs:
       
       - name: Echo directory
         run: ls src/dist/linux
+      #zip up files
+      - uses: papeloto/action-zip@v1
+        with:
+          files: src/dist/linux/clien2 head.png segment.png
+          dest: linux_binaries.zip
       #auto release
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
@@ -52,6 +57,4 @@ jobs:
           title: "Development Build"
           files: |
             LICENSE.txt
-            src/dist/linux/client2
-            head.png
-            segment.png
+            linux_binaries.zip

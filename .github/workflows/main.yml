@@ -35,7 +35,7 @@ jobs:
           python3 -m pip install pygame==1.9.6
           python3 -c "import pygame;print('hello')"
 
-      - name: PyInstaller Linux
+      - name: PyInstaller Linux Client
         # You may pin to the exact commit or the version.
         # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
         uses: JackMcKew/pyinstaller-action-linux@main
@@ -44,9 +44,18 @@ jobs:
           path: src # default is src
           # Specify a file path for .spec file
           spec: client2.spec # optional, default is
+      - name: PyInstaller Linux Server
+        # You may pin to the exact commit or the version.
+        # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
+        uses: JackMcKew/pyinstaller-action-linux@main
+        with:
+          # Directory containing source code & .spec file (optional requirements.txt).
+          path: src # default is src
+          # Specify a file path for .spec file
+          spec: server.spec # optional, default is
       - uses: actions/upload-artifact@v2
         with:
-          name: packaged-client
+          name: packaged-binaries
           path: src/dist/linux
       
       - name: Echo directory
@@ -54,7 +63,7 @@ jobs:
       #zip up files
       - uses: papeloto/action-zip@v1
         with:
-          files: src/dist/linux/client2 head.png segment.png
+          files: src/dist/linux/client2 src/dist/linux/server head.png segment.png
           dest: linux_binaries.zip
       #auto release
       - uses: "marvinpinto/action-automatic-releases@latest"

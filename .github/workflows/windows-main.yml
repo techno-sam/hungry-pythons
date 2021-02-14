@@ -72,3 +72,65 @@ jobs:
           files: |
             LICENSE.txt
             windows_binaries.zip
+  build-x86:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      # Runs a single command using the runners shell
+      - name: Run a one-line script
+        run: echo Hello, world!
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.6' # Version range or exact version of a Python version to use, using SemVer's version range syntax
+          architecture: 'x86' # optional x64 or x86. Defaults to x64 if not specified
+      - run: |
+          python -m pip install --upgrade pip
+          python3 -m pip install pygame==1.9.6
+          python3 -c "import pygame;print('hello')"
+
+      - name: PyInstaller Windows Client
+        # You may pin to the exact commit or the version.
+        # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
+        uses: JackMcKew/pyinstaller-action-windows@main
+        with:
+          # Directory containing source code & .spec file (optional requirements.txt).
+          path: src # default is src
+          # Specify a file path for .spec file
+          spec: client2.spec # optional, default is
+      - name: PyInstaller Windows Server
+        # You may pin to the exact commit or the version.
+        # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
+        uses: JackMcKew/pyinstaller-action-windows@main
+        with:
+          # Directory containing source code & .spec file (optional requirements.txt).
+          path: src # default is src
+          # Specify a file path for .spec file
+          spec: server.spec # optional, default is
+      - uses: actions/upload-artifact@v2
+        with:
+          name: packaged-binaries-x86
+          path: src/dist/windows
+      
+      - name: Echo directory
+        run: ls src/dist/windows
+      #zip up files
+      - uses: papeloto/action-zip@v1
+        with:
+          files: src/dist/windows/client2 src/dist/windows/server head.png segment.png
+          dest: windows_binaries_x86.zip
+      #auto release
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest-windows"
+          prerelease: true
+          title: "Development Build - Windows"
+          files: |
+            LICENSE.txt
+            windows_binaries.zip
+            windws_binaries_x86.zip

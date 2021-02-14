@@ -36,11 +36,11 @@ jobs:
 
       - name: PyInstaller Mac Client
         run:
-          python -m pyinstaller src/client2.spec
+          python3 -m pyinstaller src/client2.spec
           #-i icon.icns
       - name: PyInstaller Mac Server
         run:
-          python -m pyinstaller src/server.spec
+          python3 -m pyinstaller] src/server.spec
           #-i icon.icns
       
       - name: Echo directory

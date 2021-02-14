@@ -1,0 +1,77 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the action will run. 
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      # Runs a single command using the runners shell
+      - name: Run a one-line script
+        run: echo Hello, world!
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.6' # Version range or exact version of a Python version to use, using SemVer's version range syntax
+          architecture: 'x64' # optional x64 or x86. Defaults to x64 if not specified
+      - run: |
+          python -m pip install --upgrade pip
+          python3 -m pip install pygame==1.9.6
+          python3 -c "import pygame;print('hello')"
+
+      - name: PyInstaller Linux Client
+        # You may pin to the exact commit or the version.
+        # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
+        uses: JackMcKew/pyinstaller-action-linux@main
+        with:
+          # Directory containing source code & .spec file (optional requirements.txt).
+          path: src # default is src
+          # Specify a file path for .spec file
+          spec: client2.spec # optional, default is
+      - name: PyInstaller Linux Server
+        # You may pin to the exact commit or the version.
+        # uses: JackMcKew/pyinstaller-action-linux@38639c352a36917eea765f9283bfd1092c28af7b
+        uses: JackMcKew/pyinstaller-action-linux@main
+        with:
+          # Directory containing source code & .spec file (optional requirements.txt).
+          path: src # default is src
+          # Specify a file path for .spec file
+          spec: server.spec # optional, default is
+      - uses: actions/upload-artifact@v2
+        with:
+          name: packaged-binaries
+          path: src/dist/linux
+      
+      - name: Echo directory
+        run: ls src/dist/linux
+      #zip up files
+      - uses: papeloto/action-zip@v1
+        with:
+          files: src/dist/linux/client2 src/dist/linux/server head.png segment.png
+          dest: linux_binaries.zip
+      #auto release
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Development Build"
+          files: |
+            LICENSE.txt
+            linux_binaries.zip

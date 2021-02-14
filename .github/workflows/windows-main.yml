@@ -49,7 +49,7 @@ jobs:
           path: dist
       
       - name: Echo directory
-        run: ls dists
+        run: ls dist
       #zip up files
       - uses: papeloto/action-zip@v1
         with:

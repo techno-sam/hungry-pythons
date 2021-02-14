@@ -8,3 +8,4 @@ socketserver
 socket
 queue
 colorsys
+pygame==1.9.6

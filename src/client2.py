@@ -98,6 +98,7 @@ color_precision = 3
 segImQueue = queue.Queue()
 def segImGen():
     import pygame, colorsys
+    print('\n\n\n',os.popen('file '+resource_path("segment.png")).read(),'\n\n\n')
     img = pygame.image.load(resource_path("segment.png"))
     img = pygame.transform.scale(img,(30,30))
     global color_precision

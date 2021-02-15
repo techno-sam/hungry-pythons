@@ -1,5 +1,5 @@
 # Hungry Pythons
-A game similar to slither.io, written in Python 3
+A game similar to slither.io, written in Python 3.
 
 ## How you can help
 See projects tab.

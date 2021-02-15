@@ -100,7 +100,7 @@ segImQueue = queue.Queue()
 def segImGen():
     import pygame, colorsys
     #print('\n\n\n',os.popen('file '+resource_path("segment.png")).read(),'\n\n\n')
-    img = pygame.image.load(resource_path("segment.png"))
+    img = pygame.image.load(resource_path("assets/segment.png"))
     img = pygame.transform.scale(img,(30,30))
     global color_precision
     dec_digs = color_precision
@@ -225,8 +225,8 @@ head_images = {}
 
 global head_rot
 head_rot = 0
-head_img = pygame.image.load(resource_path("head.png"))
-seg_img = pygame.image.load(resource_path("segment.png"))
+head_img = pygame.image.load(resource_path("assets/head.png"))
+seg_img = pygame.image.load(resource_path("assets/segment.png"))
 seg_color = (240,10,128)
 seg_hue = colorsys.rgb_to_hsv(*seg_color)[0]
 seg_hue = 268/360
@@ -258,8 +258,8 @@ for x in range(head_img.get_width()):
 #print(head_img.get_at((0,0)))
 #head_img.set_colorkey((0,0,0,255))
 
-base_head = pygame.image.load(resource_path("head.png"))
-base_seg = pygame.image.load(resource_path("segment.png"))
+base_head = pygame.image.load(resource_path("assets/head.png"))
+base_seg = pygame.image.load(resource_path("assets/segment.png"))
 
 class Segment(pygame.sprite.Sprite):
     def __init__(self, pos, color=(0,125,255), radius=15, is_head=False):
@@ -500,7 +500,7 @@ while kg:
 
     def text(screen, draw_string, pos, size=48, color=(255,255,255), auto=False, Font="Times"):
         print(f"\n\n\nLoading font {Font}\n\n\n")
-        font = pygame.font.SysFont(Font, size)
+        font = pygame.font.SysFont(resource_path('assets/FreeSerif.ttf'), size)
         text = font.render(draw_string, True, color)
         text_rect = text.get_rect()
         text_rect.centerx = pos[0] #was text_rect.centerx = pos[0]

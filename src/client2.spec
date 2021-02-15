@@ -2,7 +2,7 @@
 
 block_cipher = None
 
-data_files = [("../segment.png","segment.png"),("../head.png","head.png")]
+data_files = [("../segment.png","."),("../head.png",".")]
 
 a = Analysis(['client2.py'],
              pathex=['/home/sam/bin/0_packaged_programs/hungry_pythons/src'],

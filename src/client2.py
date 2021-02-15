@@ -499,6 +499,7 @@ while kg:
     sock.__exit__()
 
     def text(screen, draw_string, pos, size=48, color=(255,255,255), auto=False, Font="Times"):
+        print(f"\n\n\nLoading font {Font}\n\n\n")
         font = pygame.font.SysFont(Font, size)
         text = font.render(draw_string, True, color)
         text_rect = text.get_rect()

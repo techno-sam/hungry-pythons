@@ -98,7 +98,7 @@ color_precision = 3
 segImQueue = queue.Queue()
 def segImGen():
     import pygame, colorsys
-    print('\n\n\n',os.popen('file '+resource_path("segment.png")).read(),'\n\n\n')
+    #print('\n\n\n',os.popen('file '+resource_path("segment.png")).read(),'\n\n\n')
     img = pygame.image.load(resource_path("segment.png"))
     img = pygame.transform.scale(img,(30,30))
     global color_precision
@@ -257,8 +257,8 @@ for x in range(head_img.get_width()):
 #print(head_img.get_at((0,0)))
 #head_img.set_colorkey((0,0,0,255))
 
-base_head = pygame.image.load("./head.png")
-base_seg = pygame.image.load("./segment.png")
+base_head = pygame.image.load(resource_path("head.png"))
+base_seg = pygame.image.load(resource_path("segment.png"))
 
 class Segment(pygame.sprite.Sprite):
     def __init__(self, pos, color=(0,125,255), radius=15, is_head=False):

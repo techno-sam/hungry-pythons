@@ -17,6 +17,7 @@ import pygame
 import time
 pygame.init()
 def text(screen, draw_string, pos, size=48, color=(255,255,255), auto=False, Font="Times"):
+    print(f"Loading font {Font}")
     font = pygame.font.SysFont(Font, size)
     text = font.render(draw_string, True, color)
     text_rect = text.get_rect()

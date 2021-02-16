@@ -4,6 +4,13 @@ A game similar to slither.io, written in Python 3.6
 ## How you can help
 See projects tab.
 
+## Downloading Pre-built Binaries
+1. Go to the [Releases](https://github.com/techno-sam/hungry-pythons/releases) tab
+1. Open the development bulid for your operating system
+1. Download the <OS>_binaries.zip file (for example, linux_binaries.zip)
+1. Unzip the downloaded archive
+1. See the [Recommended Parameters](#recommended-parameters) section of this readme for more information
+
 ## Building
 1. Clone or download this repository.
 1. Install Python 3.6

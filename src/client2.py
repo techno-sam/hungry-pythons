@@ -256,6 +256,7 @@ for x in range(head_img.get_width()):
         col = colorsys.hsv_to_rgb(head_hue,hsv[1],hsv[2])
         col = (int(col[0]),int(col[1]),int(col[2]),head_img.get_at((x,y))[3])
         head_img.set_at((x,y),col)'''
+
 #print(head_hue,seg_hue)
 #print(head_img.get_at((0,0)))
 #head_img.set_colorkey((0,0,0,255))

@@ -501,8 +501,10 @@ while kg:
 
     def text(screen, draw_string, pos, size=48, color=(255,255,255), auto=False, Font="Times"):
         print(f"\n\n\nLoading font {Font}\n\n\n")
-        font = pygame.font.SysFont(resource_path('assets/FreeSerif.ttf'), size)
+        font = pygame.font.Font(resource_path('assets/FreeSerif.ttf'), size)
+        print("loaded!")
         text = font.render(draw_string, True, color)
+        print("1")
         text_rect = text.get_rect()
         text_rect.centerx = pos[0] #was text_rect.centerx = pos[0]
         text_rect.y = pos[1]

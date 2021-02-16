@@ -15,6 +15,16 @@ See projects tab.
     1. python3 -m PyInstaller src/server.spec
 1. Find the binaries in ./dists/
 
+## Recommended Parameters
+For client:
+```shell
+/path/to/client2 --host 127.0.0.1 --port 9999 --view_dist 475
+```
+For server:
+```shell
+/path/to/server --host 127.0.0.1 --port 9999 --border 2000 --timeout 15
+```
+
 ## Licensing
 This project is licensed under the GNU General Public License v3.0.
 For more information, see [license](LICENSE).

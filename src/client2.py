@@ -232,6 +232,7 @@ seg_color = (240,10,128)
 seg_hue = colorsys.rgb_to_hsv(*seg_color)[0]
 seg_hue = 268/360
 head_hue = seg_hue
+
 '''
 for x in range(seg_img.get_width()):
     for y in range(seg_img.get_height()):

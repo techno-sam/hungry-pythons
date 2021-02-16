@@ -2,7 +2,7 @@
 
 block_cipher = None
 
-data_files = [("../assets/*",".")]
+data_files = [("../assets/*","assets")]
 
 a = Analysis(['client2.py'],
              pathex=['/home/sam/bin/0_packaged_programs/hungry_pythons/src'],

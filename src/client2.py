@@ -30,7 +30,7 @@ def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     default = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..'))
     base_path = getattr(sys, '_MEIPASS', default)
-    print(base_path)
+    #print(base_path)
     return os.path.join(base_path, relative_path)
 
 
@@ -500,11 +500,8 @@ while kg:
     sock.__exit__()
 
     def text(screen, draw_string, pos, size=48, color=(255,255,255), auto=False, Font="Times"):
-        print(f"\n\n\nLoading font {Font}\n\n\n")
         font = pygame.font.Font(resource_path('assets/FreeSerif.ttf'), size)
-        print("loaded!")
         text = font.render(draw_string, True, color)
-        print("1")
         text_rect = text.get_rect()
         text_rect.centerx = pos[0] #was text_rect.centerx = pos[0]
         text_rect.y = pos[1]

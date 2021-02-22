@@ -697,8 +697,6 @@ def update_snake(snake,dtime_override=None):
             message['food'].append([f.pos,f.color,f.radius,f.energy])
     add_to_out_queue(snake['ip'],snake['uuid'],message)
 
-last_time = time.time()
-
 if __name__ == "__main__":
     #global HOST, PORT
 
@@ -711,12 +709,10 @@ if __name__ == "__main__":
         kg = True
         while kg:
             try:
-                dtime = time.time()-last_time
                 #print(dtime)
                 for sn in snakes:
-                    update_snake(sn,1/40)#dtime*10000)
+                    update_snake(sn,1/40)
                 server.handle_request()
-                last_time = time.time()
             except KeyboardInterrupt:
                 kg = False
             #print("decoded: ", decoded)

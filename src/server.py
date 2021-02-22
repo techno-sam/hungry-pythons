@@ -221,7 +221,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                             if sn['uuid']==unpickled['cookie']:
                                 sn['mousedown'] = unpickled['sprinting']
                                 sn['angle'] = unpickled['angle']
-                                update_snake(sn)
+                                #update_snake(sn)###Performance upgrades
                                 #print(time.time()-sn['last_message'])
                                 sn['last_message'] = time.time()
             elif unpickled['mode']==2: #goodbye
@@ -331,7 +331,7 @@ class Segment(pygame.sprite.Sprite):
             return math.radians(r)
 
 
-        max_turn = self.max_turn*dtime*40
+        max_turn = self.max_turn##*dtime*40
         
         change = get_dif_angles(self.angle,self.goal_angle)#self.goal_angle-self.angle
         #print(f"{round(change%360)}",end="\r")
@@ -344,7 +344,7 @@ class Segment(pygame.sprite.Sprite):
 
         self.pos = list(self.pos)
 
-        temp_speed = self.speed*dtime*40
+        temp_speed = self.speed##*dtime*40
         
         self.pos[0] += math.cos(self.angle)*temp_speed
         self.pos[1] += math.sin(self.angle)*temp_speed
@@ -500,7 +500,7 @@ for x in range(iters):
                     foods.append(Food((x,y), color=(red,green,blue), radius=random.randint(5,8), energy=1))
                 else:
                     foods.append(Food((x,y), color=(red,green,blue), radius=random.randint(13,15), energy=DEAD_MASS))'''
-def update_snake(snake):
+def update_snake(snake,dtime_override=None):
     global snakes,foods
     head = snake['head']
     segs = snake['segs']
@@ -667,6 +667,8 @@ def update_snake(snake):
         blit_centered(screen, food.image, (food.rect.x,food.rect.y), (head.rect.x,head.rect.y))"""
     #update snake
     dtime = time.time()-snake['last_message']
+    if dtime_override!=None:
+        dtime = dtime_override
     #print(f"head angle: {head.angle}, goal_angle: {head.goal_angle}, speed: {head.speed}")
     #print(f"pre head data: {head.pos}")
     head.update(dtime)
@@ -695,6 +697,8 @@ def update_snake(snake):
             message['food'].append([f.pos,f.color,f.radius,f.energy])
     add_to_out_queue(snake['ip'],snake['uuid'],message)
 
+last_time = time.time()
+
 if __name__ == "__main__":
     #global HOST, PORT
 
@@ -707,7 +711,12 @@ if __name__ == "__main__":
         kg = True
         while kg:
             try:
+                dtime = time.time()-last_time
+                #print(dtime)
+                for sn in snakes:
+                    update_snake(sn,1/40)#dtime*10000)
                 server.handle_request()
+                last_time = time.time()
             except KeyboardInterrupt:
                 kg = False
             #print("decoded: ", decoded)

@@ -33,14 +33,15 @@ print("\t--max_clients <NUMBER> - set the maximum number of clients (default 50)
 print("\t--timeout <SECONDS> - set timeout (how often we need to hear from a client) (default 5)")
 print("\t--border <RADIUS> - set border radius (beyond border, all snakes die) (default 1,200)")
 print("\t--start <NUMBER> - set spawn length (default 10)")
+print("\t--chance_formula <FORMULA> - create a custom formula to determine chance that a piece of food adds to length of snake. <SL> will be replaced with the length of the snake.")
 
 global parsed_args
-parsed_args = {'debug':None,'port':None,'host':None,'max_clients':None,'timeout':None,'border':None,'moving_food':None,'start':None}
+parsed_args = {'debug':None,'port':None,'host':None,'max_clients':None,'timeout':None,'border':None,'moving_food':None,'start':None,'chance_formula':None}
 
 args = sys.argv.copy()
 args.pop(0)
 flag_args = ['debug','moving_food']
-input_args = ['port','host','max_clients','timeout','border','start']
+input_args = ['port','host','max_clients','timeout','border','start','chance_formula']
 while len(args)>0:
     arg = args.pop(0)
     '''if arg=="--debug":
@@ -112,6 +113,17 @@ START_LENGTH = 10
 
 if parsed_args['start']!=None:
     START_LENGTH = int(round(float(parsed_args['start'])))
+
+global CHANCE_FORMULA
+CHANCE_FORMULA = "1"
+if parsed_args['chance_formula']!=None:
+    temp = parsed_args['chance_formula']
+    try:
+        pars = temp.replace("<SL>","3")
+        eval(pars)
+        CHANCE_FORMULA = temp
+    except:
+        pass
 
 global LOAD_DISTANCE
 LOAD_DISTANCE = 800 #how far from snakes is food handeled.
@@ -659,9 +671,11 @@ def update_snake(snake,dtime_override=None):
             #quit()
             if food.energy>0:
                 for x in range(food.energy):
-                    info = add_seg_pos()
-                    pos_to_add = info[0]
-                    add_seg(pos_to_add,uuid,color=food.color,angle=info[1])
+                    chance = CHANCE_FORMULA.replace("<SL>",str(len(segs)))
+                    if random.randint(1,chance)==1:
+                        info = add_seg_pos()
+                        pos_to_add = info[0]
+                        add_seg(pos_to_add,uuid,color=food.color,angle=info[1])
             else:
                 for x in range(-food.energy):
                     remove_seg()

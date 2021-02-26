@@ -2,7 +2,7 @@
 A game similar to slither.io, written in Python 3.6
 
 ## How you can help
-See projects tab.
+See [projects](https://github.com/techno-sam/hungry-pythons/projects) tab.
 
 ## Downloading Pre-built Binaries
 1. Go to the [Releases](https://github.com/techno-sam/hungry-pythons/releases) tab

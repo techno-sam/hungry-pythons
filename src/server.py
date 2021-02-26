@@ -32,14 +32,15 @@ print("\t--host <IP> - set host (default localhost unless with certain computer 
 print("\t--max_clients <NUMBER> - set the maximum number of clients (default 50)")
 print("\t--timeout <SECONDS> - set timeout (how often we need to hear from a client) (default 5)")
 print("\t--border <RADIUS> - set border radius (beyond border, all snakes die) (default 1,200)")
+print("\t--start <NUMBER> - set spawn length (default 10)")
 
 global parsed_args
-parsed_args = {'debug':None,'port':None,'host':None,'max_clients':None,'timeout':None,'border':None,'moving_food':None}
+parsed_args = {'debug':None,'port':None,'host':None,'max_clients':None,'timeout':None,'border':None,'moving_food':None,'start':None}
 
 args = sys.argv.copy()
 args.pop(0)
 flag_args = ['debug','moving_food']
-input_args = ['port','host','max_clients','timeout','border']
+input_args = ['port','host','max_clients','timeout','border','start']
 while len(args)>0:
     arg = args.pop(0)
     '''if arg=="--debug":
@@ -106,6 +107,12 @@ BORDER_DISTANCE = 1200#10000 #beyond this point, all snakes die
 if parsed_args['border']!=None:
     BORDER_DISTANCE = int(round(float(parsed_args['border'])))
 
+global START_LENGTH
+START_LENGTH = 10
+
+if parsed_args['start']!=None:
+    START_LENGTH = int(round(float(parsed_args['start'])))
+
 global LOAD_DISTANCE
 LOAD_DISTANCE = 800 #how far from snakes is food handeled.
 
@@ -155,7 +162,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
     """
 
     def handle(self):
-        global active_connections, snakes, foods, dead_handling_connections, BORDER_DISTANCE
+        global active_connections, snakes, foods, dead_handling_connections, BORDER_DISTANCE, START_LENGTH
         #self.client_address is the (ip, port) of client
         error,msg = netstring.sockget(self.request)
         error_meanings = {1:"Real Error",2:"Timeout",3:"End of File"}
@@ -197,7 +204,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                         ny += math.sin(last_seg_rev_angle)*behind_dist
                         return (nx,ny)
                     
-                    for x in range(10): #change 10 to whatever start length you want
+                    for x in range(START_LENGTH): #change 10 to whatever start length you want
                         temp_snake['segs'].append(Segment(add_seg_pos(temp_snake['head'],temp_snake['segs']),cookie,color=(random.randint(10,245),random.randint(10,245),random.randint(10,245))))
                     temp_snake['mousedown'] = False
                     temp_snake['angle'] = 0

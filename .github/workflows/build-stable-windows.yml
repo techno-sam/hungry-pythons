@@ -1,0 +1,120 @@
+# This is a basic workflow to help you get started with Actions
+
+name: GenerateStableWindowsRelease
+
+# Controls when the action will run. 
+on:
+  # Triggers the workflow on push or pull request events but only for the stable branch
+  push:
+    branches:
+      - stable
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: windows-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      # Runs a single command using the runners shell
+      - name: Run a one-line script
+        run: echo Hello, world!
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.6' # Version range or exact version of a Python version to use, using SemVer's version range syntax
+          architecture: 'x64' # optional x64 or x86. Defaults to x64 if not specified
+      - run: |
+          python3 -m pip install --upgrade pip
+          pip install -r src/requirements.txt
+      #    python3 -m pip install pygame==1.9.6
+      #    python3 -c "import pygame;print('hello')"
+
+      - name: PyInstaller Windows Client
+        run:
+          python3 -m PyInstaller src/client2.spec
+      - name: PyInstaller Windows Server
+        run:
+          python3 -m PyInstaller src/server.spec
+      - name: Echo
+        run: |
+          ls
+          ls dist
+      - uses: actions/upload-artifact@v2
+        with:
+          name: packaged-binaries
+          path: dist
+      
+      - name: Echo directory
+        run: ls dist
+      #zip up files
+      - uses: papeloto/action-zip@v1
+        with:
+          files: dist/client2.exe dist/server.exe head.png segment.png README.md
+          dest: windows_binaries.zip
+      #auto release
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "stable-windows"
+          prerelease: false
+          title: "Release Build - Windows"
+          files: |
+            LICENSE
+            windows_binaries.zip
+  build-x86:
+    # The type of runner that the job will run on
+    runs-on: windows-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      # Runs a single command using the runners shell
+      - name: Run a one-line script
+        run: echo Hello, world!
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.6' # Version range or exact version of a Python version to use, using SemVer's version range syntax
+          architecture: 'x86' # optional x64 or x86. Defaults to x64 if not specified
+      - run: |
+          python -m pip install --upgrade pip
+          python3 -m pip install pygame==1.9.6
+          python3 -c "import pygame;print('hello')"
+          pip install -r src/requirements.txt
+      - name: PyInstaller Windows Client
+        run:
+          python3 -m PyInstaller src/client2.spec
+      - name: PyInstaller Windows Server
+        run:
+          python3 -m PyInstaller src/server.spec
+      - name: Echo
+        run: |
+          ls
+          ls dist
+      - uses: actions/upload-artifact@v2
+        with:
+          name: packaged-binaries-x86
+          path: dist
+      
+      - name: Echo directory
+        run: ls dist
+      #zip up files
+      - uses: papeloto/action-zip@v1
+        with:
+          files: dist/client2.exe dist/server.exe head.png segment.png README.md
+          dest: windows_binaries_x86.zip
+      #auto release
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "stable-windows-x86"
+          prerelease: false
+          title: "Release Build - Windows X86"
+          files: |
+            LICENSE
+            windows_binaries_x86.zip

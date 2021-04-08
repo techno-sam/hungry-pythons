@@ -56,7 +56,7 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "stable-macOS"
-          prerelease: true
+          prerelease: false
           title: "Release Build - MacOS"
           files: |
             LICENSE

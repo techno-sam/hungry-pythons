@@ -60,7 +60,7 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "stable-windows"
-          prerelease: true
+          prerelease: false
           title: "Release Build - Windows"
           files: |
             LICENSE
@@ -114,7 +114,7 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "stable-windows-x86"
-          prerelease: true
+          prerelease: false
           title: "Release Build - Windows X86"
           files: |
             LICENSE

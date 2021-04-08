@@ -35,6 +35,9 @@ print("\t--border <RADIUS> - set border radius (beyond border, all snakes die) (
 print("\t--start <NUMBER> - set spawn length (default 10)")
 print("\t--chance_formula <FORMULA> - create a custom formula to determine chance that a piece of food adds to length of snake. <SL> will be replaced with the length of the snake.")
 
+global snake_mutex
+snake_mutex = threading.Lock()
+
 global parsed_args
 parsed_args = {'debug':None,'port':None,'host':None,'max_clients':None,'timeout':None,'border':None,'moving_food':None,'start':None,'chance_formula':None}
 
@@ -128,22 +131,40 @@ if parsed_args['chance_formula']!=None:
 global LOAD_DISTANCE
 LOAD_DISTANCE = 800 #how far from snakes is food handeled.
 
+'''def update_thread():
+    debug(lambda:print("update_thread start"))
+    global snakes
+    while True:
+        with snake_mutex:
+            for sn in snakes:
+                update_snake(sn,1/40)
+    debug(lambda:print("update_thread stop"))'''
+def connection_thread():
+    debug(lambda:print("connection_thread start"))
+    while DO_THREADS:
+        with snake_mutex:
+            server.handle_request()
+    debug(lambda:print("connection_thread stop"))
+
 def timeout_thread():
     debug(lambda:print("timeout_thread start"))
     global snakes, TIMEOUT_TIME
     while DO_THREADS:
-        for sn in snakes:
-            if time.time() >= sn['last_message'] + TIMEOUT_TIME:
-                #this snake is timed out, kill it.
-                for ded in sn['segs']:
-                    foods.append(Food((ded.rect.x,ded.rect.y), color=ded.color, radius=random.randint(13,15), energy=DEAD_MASS))
-                kill(sn, "Timeout")
-                debug(lambda:print(f"Timed out: ip: {sn['ip']}, uuid: {sn['uuid']}, name: {sn['name']}"))
-            elif False:
-                print(f"{sn['name']} last talked {time.time()-sn['last_message']} seconds ago.")
+        with snake_mutex:
+            for sn in snakes:
+                if time.time() >= sn['last_message'] + TIMEOUT_TIME:
+                    #this snake is timed out, kill it.
+                    for ded in sn['segs']:
+                        foods.append(Food((ded.rect.x,ded.rect.y), color=ded.color, radius=random.randint(13,15), energy=DEAD_MASS))
+                    kill(sn, "Timeout")
+                    debug(lambda:print(f"Timed out: ip: {sn['ip']}, uuid: {sn['uuid']}, name: {sn['name']}"))
+                elif False:
+                    print(f"{sn['name']} last talked {time.time()-sn['last_message']} seconds ago.")
 
         time.sleep(1)
     debug(lambda:print("timeout_thread stop"))
+
+connectionThread = threading.Thread(target=connection_thread)
 
 timeoutThread = threading.Thread(target=timeout_thread)
 
@@ -226,7 +247,8 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                     temp_snake['last_message'] = time.time()
                     if 'name' in unpickled.keys():
                         temp_snake['name'] = clean(unpickled['name'])
-                    snakes.append(temp_snake)
+                    with snake_mutex:
+                        snakes.append(temp_snake)
                     del temp_snake
             elif unpickled['mode']==1: #main communications
                 if 'cookie' in unpickled.keys(): #if we don't even have a cookie, no communication. WE NEED TREATS TO FUNCTION!
@@ -236,26 +258,28 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                             unpickled['angle'] = 0
                         if not ('sprinting' in unpickled.keys()):
                             unpickled['sprinting'] = False
-                        for sn in snakes:
-                            if sn['uuid']==unpickled['cookie']:
-                                sn['mousedown'] = unpickled['sprinting']
-                                sn['angle'] = unpickled['angle']
-                                #update_snake(sn)###Performance upgrades
-                                #print(time.time()-sn['last_message'])
-                                sn['last_message'] = time.time()
+                        with snake_mutex:
+                            for sn in snakes:
+                                if sn['uuid']==unpickled['cookie']:
+                                    sn['mousedown'] = unpickled['sprinting']
+                                    sn['angle'] = unpickled['angle']
+                                    #update_snake(sn)###Performance upgrades
+                                    #print(time.time()-sn['last_message'])
+                                    sn['last_message'] = time.time()
             elif unpickled['mode']==2: #goodbye
                 if 'cookie' in unpickled.keys(): #if we don't even have a cookie, no communication. WE NEED TREATS TO FUNCTION!
                     if (self.client_address[0],unpickled['cookie']) in active_connections:
                         debug(lambda:print("quit: ",unpickled))
                         # remove this client from list of snakes
                         new_snakes = []
-                        for sn in snakes:
-                            if sn['uuid']!=unpickled['cookie']:
-                                new_snakes.append(sn)
-                            else: #add mass of snake being removed
-                                for ded in sn['segs']:
-                                    foods.append(Food((ded.rect.x,ded.rect.y), color=ded.color, radius=random.randint(13,15), energy=DEAD_MASS))
-                        snakes = new_snakes.copy()
+                        with snake_mutex:
+                            for sn in snakes:
+                                if sn['uuid']!=unpickled['cookie']:
+                                    new_snakes.append(sn)
+                                else: #add mass of snake being removed
+                                    for ded in sn['segs']:
+                                        foods.append(Food((ded.rect.x,ded.rect.y), color=ded.color, radius=random.randint(13,15), energy=DEAD_MASS))
+                            snakes = new_snakes.copy()
                         del new_snakes
 
                         # remove this client from active_connections
@@ -266,6 +290,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                         active_connections = new_active_connections.copy()
                         del new_active_connections
                         netstring.socksend(self.request,pickle.dumps({'mode':2}))
+                        
             #print("active_connections: ",active_connections)
             if 'mode' in unpickled.keys(): #just send all that stuff from the queue
                 if 'cookie' in unpickled.keys(): #if we don't even have a cookie, no communication. WE NEED TREATS TO FUNCTION!
@@ -672,7 +697,7 @@ def update_snake(snake,dtime_override=None):
             if food.energy>0:
                 for x in range(food.energy):
                     chance = CHANCE_FORMULA.replace("<SL>",str(len(segs)))
-                    if random.randint(1,chance)==1:
+                    if random.randint(1,round(eval(chance)))==1:
                         info = add_seg_pos()
                         pos_to_add = info[0]
                         add_seg(pos_to_add,uuid,color=food.color,angle=info[1])
@@ -727,12 +752,14 @@ if __name__ == "__main__":
         # interrupt the program with Ctrl-C
         #server.serve_forever()
         timeoutThread.start()
+        #connectionThread.start()
         kg = True
         while kg:
             try:
                 #print(dtime)
-                for sn in snakes:
-                    update_snake(sn,1/40)
+                with snake_mutex:
+                    for sn in snakes:
+                        update_snake(sn,1/40)
                 server.handle_request()
             except KeyboardInterrupt:
                 kg = False

@@ -671,7 +671,7 @@ def update_snake(snake,dtime_override=None):
             #quit()
             if food.energy>0:
                 for x in range(food.energy):
-                    chance = CHANCE_FORMULA.replace("<SL>",str(len(segs)))
+                    chance = int(CHANCE_FORMULA.replace("<SL>",str(len(segs))))
                     if random.randint(1,chance)==1:
                         info = add_seg_pos()
                         pos_to_add = info[0]

@@ -1,13 +1,13 @@
 # This is a basic workflow to help you get started with Actions
 
-name: GenerateStableWindowsRelease
+name: GenerateWindowsRelease
 
 # Controls when the action will run. 
 on:
-  # Triggers the workflow on push or pull request events but only for the stable branch
+  # Triggers the workflow on push or pull request events but only for the master branch
   push:
     branches:
-      - stable
+      - master
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
@@ -59,9 +59,9 @@ jobs:
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "stable-windows"
+          automatic_release_tag: "latest-windows"
           prerelease: false
-          title: "Release Build - Windows"
+          title: "Development Build - Windows"
           files: |
             LICENSE
             windows_binaries.zip
@@ -113,9 +113,9 @@ jobs:
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "stable-windows-x86"
+          automatic_release_tag: "latest-windows-x86"
           prerelease: false
-          title: "Release Build - Windows X86"
+          title: "Development Build - Windows X86"
           files: |
             LICENSE
             windows_binaries_x86.zip

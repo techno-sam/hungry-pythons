@@ -118,4 +118,4 @@ jobs:
           title: "Development Build - Windows X86"
           files: |
             LICENSE
-            windws_binaries_x86.zip
+            windows_binaries_x86.zip

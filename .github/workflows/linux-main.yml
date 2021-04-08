@@ -4,10 +4,10 @@ name: GenerateLinuxRelease
 
 # Controls when the action will run. 
 on:
-  # Triggers the workflow on push or pull request events but only for the master branch
+  # Triggers the workflow on push or pull request events but only for the stable branch
   push:
     branches:
-      - master
+      - stable
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -67,9 +67,9 @@ jobs:
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest-linux"
+          automatic_release_tag: "stable-linux"
           prerelease: true
-          title: "Development Build - Linux"
+          title: "Release Build - Linux"
           files: |
             LICENSE
             linux_binaries.zip

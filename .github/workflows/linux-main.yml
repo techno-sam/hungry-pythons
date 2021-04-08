@@ -1,6 +1,6 @@
 # Generate release for linux
 
-name: GenerateLinuxRelease
+name: GenerateStableLinuxRelease
 
 # Controls when the action will run. 
 on:

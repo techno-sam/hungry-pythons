@@ -215,8 +215,8 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                         nx += math.cos(last_seg_rev_angle)*behind_dist
                         ny += math.sin(last_seg_rev_angle)*behind_dist
                         return (nx,ny)
-                    
-                    for x in range(START_LENGTH): #change 10 to whatever start length you want
+                    local_start_length = START_LENGTH
+                    for x in range(local_start_length): #change 10 to whatever start length you want
                         temp_snake['segs'].append(Segment(add_seg_pos(temp_snake['head'],temp_snake['segs']),cookie,color=(random.randint(10,245),random.randint(10,245),random.randint(10,245))))
                     temp_snake['mousedown'] = False
                     temp_snake['angle'] = 0
@@ -286,7 +286,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                             try:
                                 netstring.socksend(self.request,pickle.dumps(queued_message))
                             except TypeError:
-                                print(f"Failed to send a queued message {queued_message}, to client: {self.client_address[0]}, cookie: {unpickled['cookie']}")
+                                print(f"Failed to send a queued message to client: {self.client_address[0]}:{self.client_address[1]}, cookie: {unpickled['cookie']}")
                             queued_message = get_from_out_queue(self.client_address[0],unpickled['cookie'])
                 
         msg = b''

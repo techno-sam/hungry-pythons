@@ -45,14 +45,15 @@ print("\t--render_simple - enable simple rendering")
 print("\t--port <PORT> - set port (default 60000)")
 print("\t--host <IP> - set host (default localhost)")
 print("\t--view_dist <DISTANCE> - set view radius (default 400)")
+print("\t--secret <STRING> - set a secret to send to the server (not required, can provide advantages)")
 
 global parsed_args
-parsed_args = {'debug':None,'port':None,'host':None,'view_dist':None,'render_simple':None}
+parsed_args = {'debug':None,'port':None,'host':None,'view_dist':None,'render_simple':None,'secret':None}
 
 args = sys.argv.copy()
 args.pop(0)
 flag_args = ['debug','render_simple']
-input_args = ['port','host','view_dist']
+input_args = ['port','host','view_dist','secret']
 while len(args)>0:
     arg = args.pop(0)
     '''if arg=="--debug":
@@ -86,11 +87,14 @@ class HandshakeError(Exception):
 #Network constants
 HOST = "localhost"
 PORT = 60000
+SECRET = None
 
 if parsed_args['port'] != None:
     PORT = int(parsed_args['port'])
 if parsed_args['host'] != None:
     HOST = parsed_args['host']
+if parsed_args['secret'] != None:
+    SECRET = parsed_args['secret']
 #######sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #######sock.connect((HOST,PORT))
 #set up thread for generating segment images.
@@ -155,11 +159,11 @@ def get_input(inputQueue):
 
 #Handshake
 name = input("Username: ")
-secret = None
+#secret = None
 print("Contacting server...")
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect((HOST,PORT))
-send_bytes = pickle.dumps({'mode':0,'name':name,'secret':secret})
+send_bytes = pickle.dumps({'mode':0,'name':name,'secret':SECRET})
 error,mess,_ = netstring.socksend(sock,send_bytes)
 error,msg = netstring.sockget(sock)
 sock.detach()

@@ -269,12 +269,13 @@ base_head = pygame.image.load(resource_path("assets/head.png"))
 base_seg = pygame.image.load(resource_path("assets/segment.png"))
 
 class Segment(pygame.sprite.Sprite):
-    def __init__(self, pos, color=(0,125,255), radius=15, is_head=False):
+    def __init__(self, pos, color=(0,125,255), radius=15, is_head=False, is_self=False):
         pygame.sprite.Sprite.__init__(self)
         self.pos = tuple(pos)
         self.color = tuple(color)
         self.radius = radius
         self.is_head = is_head
+        self.is_self = is_self
         global seg_images,head_images,base_head,base_seg,color_precision
         '''try:
             self.image = images[(self.color,radius)]
@@ -307,6 +308,9 @@ class Segment(pygame.sprite.Sprite):
         if parsed_args['render_simple']:
             self.seg_hue = 268/360
             self.head_hue = 268/360
+            if not self.is_self:
+                self.seg_hue = 5/360
+                self.head_hue = 5/360
         if not self.is_head:
             try:
                 #print("found matching segment!")
@@ -540,7 +544,7 @@ while kg:
                     #global segs
                     #global enemy_segs
                     #global foods
-                    head = Segment(msg['head'][0],color=msg['head'][1],radius=msg['head'][2],is_head=True)
+                    head = Segment(msg['head'][0],color=msg['head'][1],radius=msg['head'][2],is_head=True,is_self=True)
                     head.angle = msg['head'][3]
                     #print("head pos: ",msg['head'][0])
                     segs = []
@@ -552,7 +556,7 @@ while kg:
                     pygame.display.set_caption("Snake Length: "+str(len(msg['segs'])))
                     for s in msg['segs']:
                         if dist(s[0][0],s[0][1],msg['head'][0][0],msg['head'][0][1])<=VIEW_DIST:
-                            seg = Segment(s[0],color=s[1],radius=s[2])
+                            seg = Segment(s[0],color=s[1],radius=s[2],is_self=True)
                             seg.angle = s[3]
                             segs.append(seg)
                     

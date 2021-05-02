@@ -33,7 +33,7 @@ print("\t--max_clients <NUMBER> - set the maximum number of clients (default 50)
 print("\t--timeout <SECONDS> - set timeout (how often we need to hear from a client) (default 5)")
 print("\t--border <RADIUS> - set border radius (beyond border, all snakes die) (default 1,200)")
 print("\t--start <NUMBER> - set spawn length (default 10)")
-print("\t--chance_formula <FORMULA> - create a custom formula to determine chance that a piece of food adds to length of snake. <SL> will be replaced with the length of the snake.")
+print("\t--chance_formula <FORMULA> - create a custom formula to determine chance that a piece of food adds to length of snake. SL will be replaced with the length of the snake.")
 
 global parsed_args
 parsed_args = {'debug':None,'port':None,'host':None,'max_clients':None,'timeout':None,'border':None,'moving_food':None,'start':None,'chance_formula':None}
@@ -119,11 +119,12 @@ CHANCE_FORMULA = "1"
 if parsed_args['chance_formula']!=None:
     temp = parsed_args['chance_formula']
     try:
-        pars = temp.replace("<SL>","3")
+        pars = temp.replace("SL","3")
         eval(pars)
         CHANCE_FORMULA = temp
+        print(f"Formula set to: {CHANCE_FORMULA}")
     except:
-        pass
+        print("Your forumula failed, defaulting to 1")
 
 global LOAD_DISTANCE
 LOAD_DISTANCE = 800 #how far from snakes is food handeled.
@@ -674,7 +675,9 @@ def update_snake(snake,dtime_override=None):
             #quit()
             if food.energy>0:
                 for x in range(food.energy):
-                    chance = int(CHANCE_FORMULA.replace("<SL>",str(len(segs))))
+                    chance = round(eval(CHANCE_FORMULA.replace("SL",str(len(segs)))))
+                    if chance<1:
+                        chance=1
                     if random.randint(1,chance)==1:
                         info = add_seg_pos()
                         pos_to_add = info[0]

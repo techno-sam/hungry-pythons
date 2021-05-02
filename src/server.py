@@ -16,7 +16,7 @@ import threading
 
 import netstring
 
-import json as pickle
+import json
 
 import socketserver
 
@@ -24,6 +24,15 @@ import socketserver
 t = threading.Thread(target=function_for_thread_to_execute)
 t.start() # thread ends when target returns
 '''
+
+secrets = {}
+
+try:
+    jsonfile = os.path.dirname(os.path.abspath(sys.argv[0]))+"/secrets.json"
+    data = open(jsonfile).read()
+    secrets = json.loads(data)
+except FileNotFoundError:
+    pass
 
 print("Options:\n\t--debug - enable debug mode")
 print("\t--moving_food - make food move")
@@ -33,15 +42,16 @@ print("\t--max_clients <NUMBER> - set the maximum number of clients (default 50)
 print("\t--timeout <SECONDS> - set timeout (how often we need to hear from a client) (default 5)")
 print("\t--border <RADIUS> - set border radius (beyond border, all snakes die) (default 1,200)")
 print("\t--start <NUMBER> - set spawn length (default 10)")
+print("\t--speed <FLOAT> - set speed multiplier (default 6.75)")
 print("\t--chance_formula <FORMULA> - create a custom formula to determine chance that a piece of food adds to length of snake. SL will be replaced with the length of the snake.")
 
 global parsed_args
-parsed_args = {'debug':None,'port':None,'host':None,'max_clients':None,'timeout':None,'border':None,'moving_food':None,'start':None,'chance_formula':None}
+parsed_args = {'debug':None,'port':None,'host':None,'max_clients':None,'timeout':None,'border':None,'moving_food':None,'start':None,'chance_formula':None,'speed':None}
 
 args = sys.argv.copy()
 args.pop(0)
 flag_args = ['debug','moving_food']
-input_args = ['port','host','max_clients','timeout','border','start','chance_formula']
+input_args = ['port','host','max_clients','timeout','border','start','chance_formula','speed']
 while len(args)>0:
     arg = args.pop(0)
     '''if arg=="--debug":
@@ -98,6 +108,12 @@ TIMEOUT_TIME = 5 #we have to hear from a client every TIMEOUT_TIME seconds, or t
 
 if parsed_args['timeout']!=None:
     TIMEOUT_TIME = float(parsed_args['timeout'])
+    
+global SPEED
+SPEED = 5 #we have to hear from a client every TIMEOUT_TIME seconds, or they are killed
+
+if parsed_args['speed']!=None:
+    SPEED = float(parsed_args['speed'])
 
 global DO_THREADS
 DO_THREADS = True
@@ -183,17 +199,17 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
             print("SOCKET ERROR: ",error_meanings[error])
         else:
             #handle the message...
-            unpickled = pickle.loads(msg)
-            if not 'mode' in unpickled.keys():
+            unjsond = json.loads(msg)
+            if not 'mode' in unjsond.keys():
                 """what the heck? what kind of communication is this supposed to be?"""
-            elif unpickled['mode']==0: #handshake
+            elif unjsond['mode']==0: #handshake
                 if len(active_connections)>=MAX_CONNECTIONS:
-                    netstring.socksend(self.request, pickle.dumps({'mode':0,'accepted':False,'reason':'Server is full'}))
+                    netstring.socksend(self.request, json.dumps({'mode':0,'accepted':False,'reason':'Server is full'}))
                 else:
-                    debug(lambda:print("got connection with table: ",unpickled))
+                    debug(lambda:print("got connection with table: ",unjsond))
                     cookie = get_connection_cookie(self.client_address[0])
                     active_connections.append((self.client_address[0],cookie))
-                    netstring.socksend(self.request, pickle.dumps({'mode':0,'accepted':True,'cookie':cookie,'border_distance':BORDER_DISTANCE,'max_turn':(math.pi/90)}))
+                    netstring.socksend(self.request, json.dumps({'mode':0,'accepted':True,'cookie':cookie,'border_distance':BORDER_DISTANCE,'max_turn':(math.pi/90)}))
                     debug(lambda:print("replied with: ",{'mode':0,'accepted':True,'cookie':cookie}))
                     #ok, now we have to actually setup a snake for this client
                     spawn_radius = BORDER_DISTANCE - 75
@@ -216,7 +232,14 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                         nx += math.cos(last_seg_rev_angle)*behind_dist
                         ny += math.sin(last_seg_rev_angle)*behind_dist
                         return (nx,ny)
+                    temp_snake['secret'] = ''
+                    if 'secret' in unjsond.keys():
+                        temp_snake['secret'] = unjsond['secret']
                     local_start_length = START_LENGTH
+                    try:
+                        local_start_length = secrets[temp_snake['secret']]['START_SIZE']
+                    except KeyError:
+                        pass
                     for x in range(local_start_length): #change 10 to whatever start length you want
                         temp_snake['segs'].append(Segment(add_seg_pos(temp_snake['head'],temp_snake['segs']),cookie,color=(random.randint(10,245),random.randint(10,245),random.randint(10,245))))
                     temp_snake['mousedown'] = False
@@ -225,33 +248,33 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                     temp_snake['name'] = 'Player'
                     temp_snake['ip'] = self.client_address[0]
                     temp_snake['last_message'] = time.time()
-                    if 'name' in unpickled.keys():
-                        temp_snake['name'] = clean(unpickled['name'])
+                    if 'name' in unjsond.keys():
+                        temp_snake['name'] = clean(unjsond['name'])
                     snakes.append(temp_snake)
                     del temp_snake
-            elif unpickled['mode']==1: #main communications
-                if 'cookie' in unpickled.keys(): #if we don't even have a cookie, no communication. WE NEED TREATS TO FUNCTION!
-                    if (self.client_address[0],unpickled['cookie']) in active_connections:
-                        #print("mode:1, got message: ",unpickled)
-                        if not ('angle' in unpickled.keys()):
-                            unpickled['angle'] = 0
-                        if not ('sprinting' in unpickled.keys()):
-                            unpickled['sprinting'] = False
+            elif unjsond['mode']==1: #main communications
+                if 'cookie' in unjsond.keys(): #if we don't even have a cookie, no communication. WE NEED TREATS TO FUNCTION!
+                    if (self.client_address[0],unjsond['cookie']) in active_connections:
+                        #print("mode:1, got message: ",unjsond)
+                        if not ('angle' in unjsond.keys()):
+                            unjsond['angle'] = 0
+                        if not ('sprinting' in unjsond.keys()):
+                            unjsond['sprinting'] = False
                         for sn in snakes:
-                            if sn['uuid']==unpickled['cookie']:
-                                sn['mousedown'] = unpickled['sprinting']
-                                sn['angle'] = unpickled['angle']
+                            if sn['uuid']==unjsond['cookie']:
+                                sn['mousedown'] = unjsond['sprinting']
+                                sn['angle'] = unjsond['angle']
                                 #update_snake(sn)###Performance upgrades
                                 #print(time.time()-sn['last_message'])
                                 sn['last_message'] = time.time()
-            elif unpickled['mode']==2: #goodbye
-                if 'cookie' in unpickled.keys(): #if we don't even have a cookie, no communication. WE NEED TREATS TO FUNCTION!
-                    if (self.client_address[0],unpickled['cookie']) in active_connections:
-                        debug(lambda:print("quit: ",unpickled))
+            elif unjsond['mode']==2: #goodbye
+                if 'cookie' in unjsond.keys(): #if we don't even have a cookie, no communication. WE NEED TREATS TO FUNCTION!
+                    if (self.client_address[0],unjsond['cookie']) in active_connections:
+                        debug(lambda:print("quit: ",unjsond))
                         # remove this client from list of snakes
                         new_snakes = []
                         for sn in snakes:
-                            if sn['uuid']!=unpickled['cookie']:
+                            if sn['uuid']!=unjsond['cookie']:
                                 new_snakes.append(sn)
                             else: #add mass of snake being removed
                                 for ded in sn['segs']:
@@ -262,33 +285,33 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                         # remove this client from active_connections
                         new_active_connections = []
                         for ac in active_connections:
-                            if ac!=(self.client_address[0],unpickled['cookie']):
+                            if ac!=(self.client_address[0],unjsond['cookie']):
                                 new_active_connections.append(ac)
                         active_connections = new_active_connections.copy()
                         del new_active_connections
-                        netstring.socksend(self.request,pickle.dumps({'mode':2}))
+                        netstring.socksend(self.request,json.dumps({'mode':2}))
             #print("active_connections: ",active_connections)
-            if 'mode' in unpickled.keys(): #just send all that stuff from the queue
-                if 'cookie' in unpickled.keys(): #if we don't even have a cookie, no communication. WE NEED TREATS TO FUNCTION!
-                    if ((self.client_address[0],unpickled['cookie']) in active_connections) or ((self.client_address[0],unpickled['cookie']) in dead_handling_connections):
+            if 'mode' in unjsond.keys(): #just send all that stuff from the queue
+                if 'cookie' in unjsond.keys(): #if we don't even have a cookie, no communication. WE NEED TREATS TO FUNCTION!
+                    if ((self.client_address[0],unjsond['cookie']) in active_connections) or ((self.client_address[0],unjsond['cookie']) in dead_handling_connections):
                         #print("queue: ",out_message_queue)
-                        queued_message = get_from_out_queue(self.client_address[0],unpickled['cookie'])
+                        queued_message = get_from_out_queue(self.client_address[0],unjsond['cookie'])
                         while queued_message:
                             if queued_message['mode']==2:
                                 debug(lambda:print("sending: ",queued_message))
                                 # remove this client from dead_handling_connections
                                 temp = []
                                 for dhc in dead_handling_connections:
-                                    if dhc!=(self.client_address[0],unpickled['cookie']):
+                                    if dhc!=(self.client_address[0],unjsond['cookie']):
                                         temp.append(dhc)
                                 dead_handling_connections = temp.copy()
                                 del temp
                             #print("sending message from queue: ",queued_message)
                             try:
-                                netstring.socksend(self.request,pickle.dumps(queued_message))
+                                netstring.socksend(self.request,json.dumps(queued_message))
                             except TypeError:
-                                print(f"Failed to send a queued message to client: {self.client_address[0]}:{self.client_address[1]}, cookie: {unpickled['cookie']}")
-                            queued_message = get_from_out_queue(self.client_address[0],unpickled['cookie'])
+                                print(f"Failed to send a queued message to client: {self.client_address[0]}:{self.client_address[1]}, cookie: {unjsond['cookie']}")
+                            queued_message = get_from_out_queue(self.client_address[0],unjsond['cookie'])
                 
         msg = b''
 # End of network setup
@@ -323,7 +346,7 @@ class Segment(pygame.sprite.Sprite):
         self.target_pos = pos
         self.max_turn = math.pi/90#math.pi/90
         self.angle = 0
-        self.spd_mlt = 6.75#2
+        self.spd_mlt = SPEED#6.75#2
         self.speed = 0.5*self.spd_mlt
         self.normal_speed = 0.5*self.spd_mlt
         if not self.is_head:

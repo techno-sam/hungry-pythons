@@ -283,7 +283,10 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                                 dead_handling_connections = temp.copy()
                                 del temp
                             #print("sending message from queue: ",queued_message)
-                            netstring.socksend(self.request,pickle.dumps(queued_message))
+                            try:
+                                netstring.socksend(self.request,pickle.dumps(queued_message))
+                            except TypeError:
+                                print(f"Failed to send a queued message {queued_message}, to client: {self.client_address[0]}, cookie: {unpickled['cookie']}")
                             queued_message = get_from_out_queue(self.client_address[0],unpickled['cookie'])
                 
         msg = b''

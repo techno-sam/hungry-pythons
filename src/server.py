@@ -20,6 +20,8 @@ import json
 
 import socketserver
 
+from colorama import Fore, Style
+
 '''thread use:
 t = threading.Thread(target=function_for_thread_to_execute)
 t.start() # thread ends when target returns
@@ -200,6 +202,8 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
         else:
             #handle the message...
             unjsond = json.loads(msg)
+            if unjsond['mode']!=1:
+                debug(lambda:print(f"{Fore.LIGHTBLUE_EX}Received message from {self.client_address[0]}:{self.client_address[1]}: {unjsond}{Style.RESET_ALL}"))
             if not 'mode' in unjsond.keys():
                 """what the heck? what kind of communication is this supposed to be?"""
             elif unjsond['mode']==0: #handshake
@@ -310,6 +314,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                             try:
                                 netstring.socksend(self.request,json.dumps(queued_message))
                             except TypeError:
+                                add_to_out_queue(self.client_address[0],unjsond['cookie'],queued_message)
                                 print(f"Failed to send a queued message to client: {self.client_address[0]}:{self.client_address[1]}, cookie: {unjsond['cookie']}")
                             queued_message = get_from_out_queue(self.client_address[0],unjsond['cookie'])
                 

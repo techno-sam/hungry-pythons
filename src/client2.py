@@ -26,6 +26,8 @@ import gutil
 
 import colorsys
 
+from colorama import Fore, Style
+
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     default = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..'))
@@ -502,6 +504,9 @@ while kg:
         #print("successfull msg!")
         if type(msg)==str:
             msg = msg.encode()
+        unjsond = pickle.loads(msg)
+        if unjsond['mode']!=1:
+                debug(lambda:print(f"{Fore.LIGHTBLUE_EX}Received message from {HOST}:{PORT}: {unjsond}{Style.RESET_ALL}"))
         inputQueue.put(pickle.loads(msg))
     #End Get Incoming Communications
 

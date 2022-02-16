@@ -6,7 +6,7 @@
 ##Handshake
 1. **C2S Init** `{str name, str secret}`
 2. **S2C Respond** `{bool accepted, (opt)str reason}`
-3. *(If accepted)* **C2S Send Game Info**
+3. *(If accepted)* **C2S Request Game Info**
 4. **S2C Game Info** `{num borderdistance, num max_turn}`
 5. **C2S Start Game** `{}`
 

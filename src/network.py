@@ -49,9 +49,9 @@ class HandshakeInit(Packet):
     C2S = True
     S2C = False
 
-    def __init__(self, name, secret=""):
+    def __init__(self, name="Player", secret=""):
         super().__init__()
-        self.name = name or "Player"
+        self.name = name
         self.secret = secret
 
         if type(self.name) != str or type(self.secret) != str:
@@ -74,7 +74,7 @@ class HandshakeRespond(Packet):
     C2S = False
     S2C = True
 
-    def __init__(self, accepted, reason=""):
+    def __init__(self, accepted=False, reason=""):
         super().__init__()
         self.accepted = accepted
         self.reason = reason
@@ -94,7 +94,7 @@ class HandshakeRespond(Packet):
         return self
 
 
-class HandshakeSendGameInfo(Packet):
+class HandshakeRequestGameInfo(Packet):
     C2S = True
     S2C = False
 
@@ -112,7 +112,7 @@ class HandshakeGameInfo(Packet):
     C2S = False
     S2C = True
 
-    def __init__(self, border, max_turn):
+    def __init__(self, border=1200, max_turn=math.pi / 90):
         super().__init__()
         self.border = border
         self.max_turn = max_turn
@@ -154,7 +154,7 @@ class C2SUpdateInput(Packet):
     C2S = True
     S2C = False
 
-    def __init__(self, angle: float, sprinting: bool):
+    def __init__(self, angle: float = 0.5, sprinting: bool = None):
         super().__init__()
         self.angle = angle
         self.sprinting = sprinting
@@ -210,7 +210,7 @@ class S2CModifySegment(Packet):
     C2S = False
     S2C = True
 
-    def __init__(self, uuid, ishead, isown, radius, angle, pos, col):
+    def __init__(self, uuid="ERROR", ishead=None, isown=None, radius=None, angle=None, pos=None, col=None):
         super().__init__()
         self.uuid = uuid
         self.ishead = ishead
@@ -249,7 +249,7 @@ class S2CRemoveSegment(Packet):
     C2S = False
     S2C = True
 
-    def __init__(self, uuid):
+    def __init__(self, uuid="ERROR"):
         super().__init__()
         self.uuid = uuid
 
@@ -271,7 +271,7 @@ class S2CAddFood(Packet):
     C2S = False
     S2C = True
 
-    def __init__(self, uuid, pos, col, radius, energy):
+    def __init__(self, uuid="ERROR", pos=None, col=None, radius=None, energy=None):
         super().__init__()
         self.uuid = uuid
         self.pos = pos
@@ -298,7 +298,7 @@ class S2CRemoveFood(Packet):
     C2S = False
     S2C = True
 
-    def __init__(self, uuid):
+    def __init__(self, uuid="ERROR"):
         super().__init__()
         self.uuid = uuid
 
@@ -354,13 +354,11 @@ register(HandshakeInit, "h_init")
 register(HandshakeRespond, "h_respond")
 register(HandshakeGameInfo, "h_gameinfo")
 register(HandshakeStartGame, "h_startgame")
-register(HandshakeSendGameInfo, "h_sendgameinfo")
-
+register(HandshakeRequestGameInfo, "h_requestgameinfo")
 
 register(C2SResend, "c2s_resend")
 register(C2SQuit, "c2s_quit")
 register(C2SUpdateInput, "c2s_updateinput")
-
 
 register(S2CKill, "s2c_kill")
 register(S2CResending, "s2c_resending")
@@ -368,3 +366,24 @@ register(S2CRemoveFood, "s2c_removefood")
 register(S2CRemoveSegment, "s2c_removesegment")
 register(S2CAddFood, "s2c_addfood")
 register(S2CModifySegment, "s2c_modifyfood")
+
+
+def load_packet(packet: dict):
+    try:
+        name = packet["name"]
+        data = packet["data"]
+        packet_class = name_to_packet[name]
+        ret = packet_class()
+        ret.load(data)
+        return ret
+    except KeyError:
+        raise InvalidPacketError("Malformed packet received")
+
+
+def save_packet(packet: Packet):
+    try:
+        name = packet_to_name[packet.__class__]
+        data = packet.save()
+        return {"name": name, "data": data}
+    except KeyError:
+        raise InvalidPacketError("Unknown packet")

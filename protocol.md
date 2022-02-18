@@ -17,8 +17,9 @@
   * Requests server to resend all game items (segments and food)
 
 ##Server-To-Client (S2C)
-* **Modify Segment** `{str uuid, bool ishead, bool isown, num radius, num angle, tup pos(num x, num y), tup col(num r, num g, num b)}`
+* **Modify Segment** `{str uuid, bool ishead, bool isown, num radius, num angle, tup pos(num x, num y), tup col(num r, num g, num b), num idx}`
   * Adds if segment does not exist yet
+  * `idx` is index in snake (head 0, first segment 1, etc...)
 * **Remove Segment** `{str uuid}`
 * **Add Food** `{str uuid, tup pos(num x, num y), tup col(num r, num g, num b), num radius, num energy}`
 * **Remove Food** `{str uuid}`

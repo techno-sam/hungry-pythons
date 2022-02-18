@@ -25,9 +25,9 @@ class IncompletePacketWarning(RuntimeWarning):
 
 def verify_packet(packet, **kwargs):
     for name in kwargs:
-        if hasattr(packet, name):
+        if name in packet.keys():
             if type(packet[name]) != kwargs[name]:
-                raise IncompletePacketWarning("Invalid type")
+                raise IncompletePacketWarning(f"Invalid type for {name} Packet: {packet}, expected: {kwargs}")
         else:
             raise IncompletePacketWarning("Missing attribute")
 
@@ -36,7 +36,7 @@ name_to_packet = {}
 packet_to_name = {}
 
 
-def register(name, packet):
+def register(packet, name):
     name_to_packet[name] = packet
     packet_to_name[packet] = name
 
@@ -54,9 +54,9 @@ class HandshakeInit(Packet):
         self.name = name
         self.secret = secret
 
-        if type(self.name) != str or type(self.secret) != str:
-            raise InvalidPacketError(
-                f"Bad argument types: name<{type(self.name)}> should be str, secret<{type(self.secret)}> should be str")
+        #if type(self.name) != str or type(self.secret) != str:
+        #    raise InvalidPacketError(
+        #        f"Bad argument types: name<{type(self.name)}> should be str, secret<{type(self.secret)}> should be str")
 
     def save(self):
         return {"name": self.name, "secret": self.secret}
@@ -79,8 +79,8 @@ class HandshakeRespond(Packet):
         self.accepted = accepted
         self.reason = reason
 
-        if type(self.accepted) != bool or type(self.reason) != str:
-            raise InvalidPacketError("Bad types for HandshakeRespond")
+        #if type(self.accepted) != bool or type(self.reason) != str:
+        #    raise InvalidPacketError("Bad types for HandshakeRespond")
 
     def save(self):
         return {"accepted": self.accepted, "reason": self.reason}
@@ -117,8 +117,8 @@ class HandshakeGameInfo(Packet):
         self.border = border
         self.max_turn = max_turn
 
-        if type(self.border) != int or type(self.max_turn) != float:
-            raise InvalidPacketError("Bad types for HandshakeGameInfo")
+        #if type(self.border) != int or type(self.max_turn) != float:
+        #    raise InvalidPacketError("Bad types for HandshakeGameInfo")
 
     def save(self):
         return {"border": self.border, "max_turn": self.max_turn}
@@ -159,8 +159,8 @@ class C2SUpdateInput(Packet):
         self.angle = angle
         self.sprinting = sprinting
 
-        if type(self.angle) != float or type(self.sprinting) != bool:
-            raise InvalidPacketError("Bad types for C2SUpdateInput")
+        #if type(self.angle) != float or type(self.sprinting) != bool:
+        #    raise InvalidPacketError("Bad types for C2SUpdateInput")
 
     def save(self):
         return {"angle": self.angle, "sprinting": self.sprinting}
@@ -210,7 +210,7 @@ class S2CModifySegment(Packet):
     C2S = False
     S2C = True
 
-    def __init__(self, uuid="ERROR", ishead=None, isown=None, radius=None, angle=None, pos=None, col=None):
+    def __init__(self, uuid="ERROR", ishead=None, isown=None, radius=None, angle=None, pos=None, col=None, idx=None):
         super().__init__()
         self.uuid = uuid
         self.ishead = ishead
@@ -219,6 +219,7 @@ class S2CModifySegment(Packet):
         self.angle = angle
         self.pos = pos
         self.col = col
+        self.idx = idx
 
     def save(self):
         return {
@@ -228,19 +229,26 @@ class S2CModifySegment(Packet):
             "radius": self.radius,
             "angle": self.angle,
             "pos": self.pos,
-            "col": self.col
+            "col": self.col,
+            "idx": self.idx
         }
 
     def load(self, packet: dict):
-        self.uuid = packet.get("uuid", "ERROR")
+        self.uuid = str(packet.get("uuid", "ERROR"))
         self.ishead = packet.get("ishead", False)
         self.isown = packet.get("isown", False)
         self.radius = packet.get("radius", 10)
-        self.angle = packet.get("angle", 0.0)
-        self.pos = packet.get("pos", (0, 0))
-        self.col = packet.get("col", (255, 0, 255))
+        self.angle = float(packet.get("angle", 0.0))
+        self.pos = tuple(packet.get("pos", (0, 0)))
+        self.col = tuple(packet.get("col", (255, 0, 255)))
+        self.idx = packet.get("idx", 0)
 
-        verify_packet(packet, uuid=str, ishead=bool, isown=bool, radius=int, angle=float, pos=tuple, col=tuple)
+        packet["uuid"] = str(packet["uuid"])
+        packet["angle"] = float(packet["angle"])
+        packet["pos"] = tuple(packet["pos"])
+        packet["col"] = tuple(packet["col"])
+
+        verify_packet(packet, uuid=str, ishead=bool, isown=bool, radius=int, angle=float, pos=tuple, col=tuple, idx=int)
 
         return self
 
@@ -253,8 +261,8 @@ class S2CRemoveSegment(Packet):
         super().__init__()
         self.uuid = uuid
 
-        if type(self.uuid) != str:
-            raise InvalidPacketError("Bad types for S2CRemoveSegment")
+        #if type(self.uuid) != str:
+        #    raise InvalidPacketError("Bad types for S2CRemoveSegment")
 
     def save(self):
         return {"uuid": self.uuid}
@@ -289,6 +297,10 @@ class S2CAddFood(Packet):
         self.radius = packet.get("radius", 10)
         self.energy = packet.get("energy", 1)
 
+        packet["uuid"] = str(packet["uuid"])
+        packet["pos"] = tuple(packet["pos"])
+        packet["col"] = tuple(packet["col"])
+
         verify_packet(packet, uuid=str, pos=tuple, col=tuple, radius=int, energy=int)
 
         return self
@@ -302,14 +314,16 @@ class S2CRemoveFood(Packet):
         super().__init__()
         self.uuid = uuid
 
-        if type(self.uuid) != str:
-            raise InvalidPacketError("Bad types for S2CRemoveFood")
+        #if type(self.uuid) != str:
+        #    raise InvalidPacketError("Bad types for S2CRemoveFood")
 
     def save(self):
         return {"uuid": self.uuid}
 
     def load(self, packet: dict):
         self.uuid = packet.get("uuid", "ERROR")
+
+        packet["uuid"] = str(packet["uuid"])
 
         verify_packet(packet, uuid=str)
 
@@ -324,8 +338,8 @@ class S2CKill(Packet):
         super().__init__()
         self.msg = msg
 
-        if type(self.msg) != str:
-            raise InvalidPacketError("Bad types for S2CKill")
+        #if type(self.msg) != str:
+        #    raise InvalidPacketError("Bad types for S2CKill")
 
     def save(self):
         return {"msg": self.msg}

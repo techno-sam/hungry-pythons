@@ -25,6 +25,7 @@ take care of that.
 """
 
 import socket
+import time
 
 
 def sockget_len(s,L,data,run_during=None):
@@ -135,7 +136,7 @@ def send_len(s,data):
     try:
         length_sent = s.send(data)
     except socket.error as err:
-        mess ='socket error on send: '+ str(err)
+        mess ='['+str(time.time())+']socket error on send: '+ str(err)
         print(mess)
         return 1,mess,L
     length_rem = L-length_sent

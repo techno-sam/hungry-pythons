@@ -11,6 +11,8 @@ import socketserver
 import argparse
 from colorama import Fore, Style
 import pygame
+import select
+import queue
 
 sys.path.append(os.path.abspath(sys.argv[0]))
 
@@ -93,6 +95,7 @@ class Snake:
         self.mouseangle = 0
         self.uuid = uuid
         self.last_update = time.time()
+        self.last_message = time.time()
 
 
 def gen_uuid():
@@ -102,8 +105,8 @@ def gen_uuid():
 snakes = {}  # id:Snake()
 snakes_lock = threading.Lock()
 
-updates = {}  # uuid:{timestamp:Packet}
-updates_lock = threading.Lock()
+updates = {}  # uuid:Queue#{timestamp:Packet}
+#updates_lock = threading.Lock()
 
 
 class MyTcpServer(socketserver.ThreadingTCPServer):
@@ -129,31 +132,82 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
     """
 
     def handle(self):
+        print("Handle called")
 
         def send_packet(packet: network.Packet):
             netstring.socksend(self.request, json.dumps(network.save_packet(packet)))
 
         _, msg = netstring.sockget(self.request)
+        print(msg)
         loaded = network.load_packet(json.loads(msg))
         if type(loaded) != network.HandshakeInit:
+            print(f"Invalid handshake start with type of {type(loaded)}")
             self.request.close()
             return
         uuid = gen_uuid()
 
+        def add_seg_pos(head, segs):
+            if len(segs) > 0:
+                last_seg = segs[len(segs) - 1]
+            else:
+                last_seg = head
+            '''second_last_seg = segs[len(segs) - 2]
+            positive = True
+            if last_seg.angle - second_last_seg.angle < 0:
+                positive = False
+            extra = math.pi / 70  # ((last_seg.angle-second_last_seg.angle)*-1.8)
+            if not positive:
+                extra = -abs(extra)'''
+            extra = 0
+            last_seg_rev_angle = last_seg.angle + extra + math.pi
+            behind_dist = (last_seg.radius / 2) * 2
+            nx = last_seg.pos[0]
+            ny = last_seg.pos[1]
+            nx += math.cos(last_seg_rev_angle) * behind_dist
+            ny += math.sin(last_seg_rev_angle) * behind_dist
+            return tuple((nx, ny))  # , last_seg_rev_angle - math.pi
+
         name, secret = loaded.name, loaded.secret
         accepted = False
+        print("Waiting for lock")
         with snakes_lock:
+            print("Got it")
             num_snakes = len(snakes)
             if num_snakes < args.max_clients:
                 accepted = True
-                snakes[uuid] = Snake(uuid)
+                snake = Snake(uuid)
+                snakes[uuid] = snake
+                print("Accepted client!")
+
+                spawn_radius = BORDER_DISTANCE - 75
+                spawn_pos = (random.randint(-spawn_radius, spawn_radius), random.randint(-spawn_radius, spawn_radius))
+                while dist(spawn_pos[0], spawn_pos[1], 0, 0) > spawn_radius:
+                    spawn_pos = (random.randint(-spawn_radius, spawn_radius),
+                                 random.randint(-spawn_radius, spawn_radius))
+
+                snake.head = Segment(spawn_pos, uuid, gen_uuid(), snake,
+                                     color=(random.randint(10, 245), random.randint(10, 245), random.randint(10, 245)),
+                                     radius=20, is_head=True)
+                for x in range(START_LENGTH):
+                    seg_uuid = gen_uuid()
+                    snake.segments.append(Segment(add_seg_pos(snake.head, snake.segments), uuid, seg_uuid, snake,
+                                                  color=(random.randint(10, 245), random.randint(10, 245),
+                                                         random.randint(10, 245)), radius=15, is_head=False))
+                for seg in snake.segments:
+                    seg.send_update_msg()
+                # del snake
+                print(f"Spawned {START_LENGTH} segments")
+
         send_packet(network.HandshakeRespond(accepted=accepted, reason="Server is full" if not accepted else ""))
+
+        print("Waiting for game info request")
 
         _, msg = netstring.sockget(self.request)
         loaded = network.load_packet(json.loads(msg))
         if type(loaded) != network.HandshakeRequestGameInfo:
             self.request.close()
             return
+        print("Sending game info")
         send_packet(network.HandshakeGameInfo(border=args.border, max_turn=math.pi / 90))
 
         _, msg = netstring.sockget(self.request)
@@ -162,21 +216,96 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
             self.request.close()
             return
 
+        with snakes_lock:
+            snakes[uuid].last_message = time.time()
+
+        # request_mutex = threading.Lock()
+
+        # stop_input_flag = threading.Event()
+
+        print("DEBUG POINT")
+
+        '''def client_input_fun(sock):
+            while not stop_input_flag.is_set():
+                print("Searching for input")
+                input_got = False
+                with request_mutex:
+                    print("Mutex achieved")
+                    print(sock)
+                    print(sock.fileno())
+                    print(f"Time: {time.time()}")
+                    read, _, _ = select.select([sock], [], [], 0)  # poll
+                    if len(read) == 1:
+                        input_got = True
+                        _, message = netstring.sockget(sock)
+                if input_got:
+                    print(f"Got message: {message}")
+                    loaded_packet = network.load_packet(json.loads(message))
+                    if type(loaded_packet) == network.C2SQuit:
+                        kill(uuid, "Quit")
+                    elif type(loaded_packet) == network.C2SUpdateInput:
+                        with snakes_lock:
+                            sn = snakes[uuid]
+                            sn.mousedown = loaded_packet.sprinting
+                            sn.mouseangle = loaded_packet.angle
+                            del sn
+                    time.sleep(0.5)
+                else:
+                    time.sleep(2)
+
+        client_input_thread = threading.Thread(target=client_input_fun, args=(self.request,))'''
+
         playing = True
+        # client_input_thread.start()
         while playing:
+            # Get client input
+            # print(self.request)
+            # print(self.request.fileno())
+            # print(f"Time: {time.time()}")
+            # print("Polling for input")
+            read, _, _ = select.select([self.request], [], [], 0)  # poll
+            if len(read) == 1:
+                _, message = netstring.sockget(self.request)
+                # print(f"Got message: {message}")
+                loaded_packet = network.load_packet(json.loads(message))
+                if type(loaded_packet) == network.C2SQuit:
+                    kill(uuid, "Quit")
+                elif type(loaded_packet) == network.C2SUpdateInput:
+                    with snakes_lock:
+                        sn = snakes[uuid]
+                        sn.mousedown = loaded_packet.sprinting
+                        sn.mouseangle = loaded_packet.angle
+                        sn.last_message = time.time()
+                        # del sn
+
             # Send all updates
-            with updates_lock:
+            # print("Waiting to send")
+            if True:  # with updates_lock:
+                # print("Ready to send")
                 my_updates = updates[uuid]
-                for timestamp in my_updates:
-                    send_packet(my_updates[timestamp])
-                    del my_updates[timestamp]
+                while not my_updates.empty():
+                    # if type(my_updates[timestamp]) != network.S2CAddFood:
+                    #    print(f"{Fore.RED}Sending packet: {my_updates[timestamp]}{Style.RESET_ALL}")
+                    send_packet(my_updates.get())
+                    # if type(my_updates[timestamp]) != network.S2CAddFood:
+                    #    print(f"{Fore.RED}Done sending packet: {my_updates[timestamp]}{Style.RESET_ALL}")
+                # updates[uuid] = {}
 
             # CLOSE request if DED
             with snakes_lock:
                 snake = snakes[uuid]
                 if not snake.alive:
+                    print("OOPS")
                     self.request.close()
-                    return
+                    playing = False
+                    # stop_input_flag.set()
+                    del updates[uuid]
+                    with snakes_lock:
+                        del snakes[uuid]
+                    raise Exception("KILLED A SNAKE BAAAAAADDDDDDD")
+            # print(f"{Fore.GREEN}network sleeping{Style.RESET_ALL}")
+            ####time.sleep(1)
+        print("BYYYYEEEEEEEEEEE")
 
 
 print("hello")
@@ -196,7 +325,7 @@ pygame.init()
 
 
 class Segment(pygame.sprite.Sprite):
-    def __init__(self, pos, snake_uuid, uuid, color=(0, 125, 255), radius=15, is_head=False):
+    def __init__(self, pos, snake_uuid, uuid, parent_snake, color=(0, 125, 255), radius=15, is_head=False):
         pygame.sprite.Sprite.__init__(self)
         self.pos = pos
         self.color = color
@@ -220,6 +349,7 @@ class Segment(pygame.sprite.Sprite):
         self.goal_angle = 0
         self.snake_uuid = snake_uuid
         self.uuid = uuid
+        self.parent_snake = parent_snake
 
         self.rect.x = self.pos[0] - self.rect.width / 2
         self.rect.y = self.pos[1] - self.rect.height / 2
@@ -232,12 +362,18 @@ class Segment(pygame.sprite.Sprite):
     def send_update_msg(self):
         new_cache_hash = self.gen_cache_hash()
         if self.cache_hash != new_cache_hash:
+            idx = 0
+            if not self.is_head:
+                for seg in self.parent_snake.segments:
+                    idx += 1
+                    if seg.uuid == self.uuid:
+                        break
             packet = network.S2CModifySegment(uuid=self.uuid, ishead=self.is_head, isown=False, radius=self.radius,
-                                              angle=self.angle, pos=self.pos, col=self.color)
+                                              angle=self.angle, pos=self.pos, col=self.color, idx=idx)
             send_update(packet, blacklist_uuid=self.snake_uuid)
             ownerpacket = network.S2CModifySegment(uuid=self.uuid, ishead=self.is_head, isown=True, radius=self.radius,
-                                                   angle=self.angle, pos=self.pos, col=self.color)
-            send_update(packet, uuid=self.snake_uuid)
+                                                   angle=self.angle, pos=self.pos, col=self.color, idx=idx)
+            send_update(ownerpacket, uuid=self.snake_uuid)
             self.cache_hash = new_cache_hash
 
     def update(self, dtime):
@@ -333,6 +469,7 @@ class Food(pygame.sprite.Sprite):
         if out_of_range:
             # print("deleting...")
             send_update(network.S2CRemoveFood(self.uuid))
+            print(f"{Fore.CYAN}deleting self{Style.RESET_ALL}")
             del foods[self.uuid]
             return
         else:
@@ -401,13 +538,19 @@ sprint_mult = 1.75
 
 
 def send_update(packet, uuid=None, blacklist_uuid=None):
-    with updates_lock:
+    # print("Waiting for update lock")
+    if True:  # with updates_lock:
+        # print("Received update lock")
         if uuid is None:
             for uuid in updates:
                 if uuid != blacklist_uuid:
-                    updates[uuid][time.time()] = packet
+                    if uuid not in updates:
+                        updates[uuid] = queue.Queue()
+                    updates[uuid].put(packet)
         else:
-            updates[uuid][time.time()] = packet
+            if uuid not in updates:
+                updates[uuid] = queue.Queue()
+            updates[uuid].put(packet)
 
 
 def gen_killed_msg(killer):
@@ -429,6 +572,9 @@ def kill(uuid, msg):
     global snakes
     with snakes_lock:
         snakes[uuid].alive = False
+        for seg in snakes[uuid].segments:
+            seg_uuid = seg.uuid
+            send_update(network.S2CRemoveSegment(uuid=seg_uuid))
     send_update(network.S2CKill(msg=msg))
     # remove this client from active_connections
     # debug(lambda: print(
@@ -456,10 +602,13 @@ for x in range(iters):
                 else:
                     foods.append(Food((x,y), color=(red,green,blue), radius=random.randint(13,15), energy=DEAD_MASS))'''
 
+print("Defining update snake")
+
 
 def update_snake(uuid, dtime_override=None):
     global snakes, foods
     with snakes_lock:
+        # print("Lock achieved")
         snake = snakes[uuid]
         head = snake.head
         segs = snake.segments
@@ -488,7 +637,8 @@ def update_snake(uuid, dtime_override=None):
             return (nx, ny), last_seg_rev_angle - math.pi
 
         def add_seg(pos, snake_uuid, color=(0, 125, 255), radius=15, angle=0):
-            newseg = Segment(pos, snake_uuid, gen_uuid(), color=color, radius=radius)
+            # print("Creating segment")
+            newseg = Segment(pos, snake_uuid, gen_uuid(), snake, color=color, radius=radius)
             newseg.angle = angle
             # g.add(newseg)
             segs.append(newseg)
@@ -499,16 +649,19 @@ def update_snake(uuid, dtime_override=None):
                 seg.kill()
                 send_update(network.S2CRemoveSegment(uuid=seg.uuid))
 
+        # print("Checkpoint 1")
         # let's start by seeing if this snake is ded
         for enemy_uuid in snakes:
             if enemy_uuid != uuid:
                 enemy = snakes[enemy_uuid]
                 for seg in enemy.segments:
                     if collision_circle(seg.rect.x, seg.rect.y, seg.radius, head.rect.x, head.rect.y, head.radius):
+                        print(f"{Fore.RED}Killing snake from bumping into snake{Style.RESET_ALL}")
                         kill(uuid, gen_killed_msg(enemy.name))
                         # add mass
                         for ded in segs:
                             tmp_uuid = gen_uuid()
+                            print(f"{Fore.BLUE}Adding food from dead snake{Style.RESET_ALL}")
                             foods[tmp_uuid] = Food((ded.rect.x, ded.rect.y),
                                                    tmp_uuid,
                                                    color=ded.color,
@@ -516,9 +669,10 @@ def update_snake(uuid, dtime_override=None):
                                                    energy=DEAD_MASS)
                         return None
         if dist(head.pos[0], head.pos[1], 0, 0) > BORDER_DISTANCE:
+            print(f"{Fore.RED}Snake killed OOF{Style.RESET_ALL}")
             kill(snake, gen_border_death_msg())
             return None
-
+        # print("Checkpoint 2")
         # screen.fill((0,0,0))
         # mp = None
         # mp = pygame.mouse.get_pos()
@@ -541,6 +695,7 @@ def update_snake(uuid, dtime_override=None):
             head.speed = head.normal_speed * sprint_mult
         # if collision_circle(mp[0],mp[1],2,head.pos[0],head.pos[1],head.radius):
         #    head.speed = 0
+        # print("Checkpoint 3")
         # handle segments
         for i in range(len(segs)):
             if i == 0:
@@ -562,18 +717,23 @@ def update_snake(uuid, dtime_override=None):
                     segs[i].speed = 0
 
             # print(s.pos)
+        # print('Checkpoint 3.5')
         # add some food
         foods_in_range = 0
-        for f in foods:
+        for f_uuid in foods:
+            f = foods[f_uuid]
             if dist(f.pos[0], f.pos[1], head.pos[0], head.pos[1]) < (LOAD_DISTANCE * (7 / 8)):
                 foods_in_range += 1
         should_add_food = (foods_in_range < round((1000 / 1440000) * ((LOAD_DISTANCE * (7 / 8)) ** 2)))
         while should_add_food:
             foods_in_range = 0
-            for f in foods:
+            for f_uuid in foods:
+                f = foods[f_uuid]
                 if dist(f.pos[0], f.pos[1], head.pos[0], head.pos[1]) < (LOAD_DISTANCE * (7 / 8)):
                     foods_in_range += 1
             should_add_food = (foods_in_range < round((1000 / 1440000) * ((LOAD_DISTANCE * (7 / 8)) ** 2)))
+            # print(
+            #    f"Foods_in_range: {foods_in_range}, Total needed: {round((1000 / 1440000) * ((LOAD_DISTANCE * (7 / 8)) ** 2))}")
             if True:  # should_add_food and random.randint(0,200)==0:
                 for i in range(random.randint(0, 3)):
                     rnge = round(LOAD_DISTANCE * (7 / 8))  # 1200
@@ -595,6 +755,7 @@ def update_snake(uuid, dtime_override=None):
                             tmp_uuid = gen_uuid()
                             foods[tmp_uuid] = Food((x, y), tmp_uuid, color=(red, green, blue),
                                                    radius=random.randint(13, 15), energy=DEAD_MASS)
+        # print("Checkpoint 4")
         """
         if len(foods)<2000 and random.randint(0,200)==0:
             for i in range(random.randint(0,3)):
@@ -617,9 +778,12 @@ def update_snake(uuid, dtime_override=None):
         # deal with food
         # eat food
         search_rad = 15
+        foods_to_remove = []
         for food_uuid in foods:
+            # print(f"trying to eat food with uuid {food_uuid}")
             food = foods[food_uuid]
             if collision_circle(food.pos[0], food.pos[1], food.radius, head.pos[0], head.pos[1], head.radius):
+                # print(f"{Fore.MAGENTA}colliding with food{Style.RESET_ALL}")
                 # print(f"collision_circle({food.rect.x}, {food.rect.y}, {food.radius}, {head.rect.x}, {head.rect.y}, {head.radius})")
                 # raise Exception("just need to end")
                 # quit()
@@ -631,29 +795,40 @@ def update_snake(uuid, dtime_override=None):
                         if random.randint(1, chance) == 1:
                             info = add_seg_pos()
                             pos_to_add = info[0]
+                            # print(f"Yummy, adding segment")
                             add_seg(pos_to_add, uuid, color=food.color, angle=info[1])
+                            # print(f"Yummy, added segment")
                 else:
                     for x in range(-food.energy):
                         remove_seg()
-                del foods[food_uuid]
+
+                foods_to_remove.append(food_uuid)
                 send_update(network.S2CRemoveFood(food_uuid))
+            # print(f"Done trying food with uuid {food_uuid}")
+        for food_uuid in foods_to_remove:
+            # print(f"{Fore.YELLOW}Deleting food with uuid {food_uuid}{Style.RESET_ALL}")
+            del foods[food_uuid]
+        # print("checkpoint 5")
         """#draw food
         for food in foods:
             food.update()
             blit_centered(screen, food.image, (food.rect.x,food.rect.y), (head.rect.x,head.rect.y))"""
         # update snake
-        dtime = time.time() - snake.last_updated
+        dtime = time.time() - snake.last_update
         if dtime_override != None:
             dtime = dtime_override
         # print(f"head angle: {head.angle}, goal_angle: {head.goal_angle}, speed: {head.speed}")
         # print(f"pre head data: {head.pos}")
         head.update(dtime)
+        # print("Checkpoint 5.1")
         # print(f"post head data: {head.pos}")
         # quit()
         send_distance = 775
         cx, cy = head.pos[0], head.pos[1]
         for seg in segs:
+            # seg = segs[seg_uuid]
             seg.update(dtime)
+        # print("CHeckpoint 6")
         '''seg_mess = []
         for seg in segs:
             seg_mess.append([seg.pos, seg.color, seg.radius, seg.angle])
@@ -677,10 +852,27 @@ def update_snake(uuid, dtime_override=None):
                 message['food'].append([f.pos, f.color, f.radius, f.energy])
         send_update(snake['ip'], snake['uuid'], message)'''
         snake.last_update = time.time()
+        # print("Lock should release soon")
+    # print("Lock released")
 
 
 def run_server(instance):
-    instance.serve_forever()
+    print(instance)
+    print("Started server", instance)
+    print("More done")
+    print("Yet more stuff")
+    print("Awesome")
+    while True:
+        # print("C")
+        try:
+            instance.handle_request()
+        except ValueError:
+            pass  # print("OOOOOOOOOOOOOOOOOOOOOOOOPPPPPPSSSSSSSSSSSSSSSSSSS")
+        # print("Pausing...")
+        time.sleep(5)
+        # print("Done pausing...")
+        # print("D")
+    print("Ended server")
 
 
 if __name__ == "__main__":
@@ -693,20 +885,47 @@ if __name__ == "__main__":
         # server.serve_forever()
         # timeoutThread.start()
         serverThread = threading.Thread(target=run_server, args=(server,))
+        serverThread.start()
+        print("A")
+        # server.serve_forever()
+        print("B")
+        print("LKJLKJL")
+        time.sleep(5)
+        print("END SLEEPING")
+        last_time = time.time()
         kg = True
         while kg:
+            # print("TRYING to do stuff")
             try:
                 # print(dtime)
+                # print(f"Number of snakes: {len(snakes)}\nNumber of foods: {len(foods)}")
                 for sn_uuid in snakes:
+                    # print(f"Updating snake uuid {sn_uuid}")
                     update_snake(sn_uuid, 1 / 40)
-                for f_uuid in foods:
+                    # print(f"Done updating snake uuid {sn_uuid}")
+                '''for f_uuid in foods:
+                    #print(f"Updating food uuid {f_uuid}")
                     foods[f_uuid].update()
+                    #print(f"Done updating food uuid {f_uuid}")
+                    #print("More data")
+                    #print("Does this get run?")
+                    #print("OK..........")
+                    #print("Weird stuff happening")#'''
+                # print("Outside of for loop...")
+                # print(f"After Number of snakes: {len(snakes)}\nAfter Number of foods: {len(foods)}")
             except KeyboardInterrupt:
                 kg = False
+            now = time.time()
+            diff = now - last_time
+            if diff < (1 / 20):
+                time.sleep((1 / 20) - diff)
+            last_time = time.time()
+            # print("Loop done, ready for next")
             # print("decoded: ", decoded)
             # if decoded=='shutdown':
             #    kg = False
         # print("hello")
+        print("Bye bye")
         server.shutdown()
         DO_THREADS = False
         pygame.quit()

@@ -35,7 +35,7 @@ jobs:
 
       - name: PyInstaller Windows Client
         run:
-          python3 -m PyInstaller src/client2.spec
+          python3 -m PyInstaller src/client.spec
       - name: PyInstaller Windows Server
         run:
           python3 -m PyInstaller src/server.spec
@@ -53,7 +53,7 @@ jobs:
       #zip up files
       - uses: papeloto/action-zip@v1
         with:
-          files: dist/client2.exe dist/server.exe head.png segment.png README.md
+          files: dist/client.exe dist/server.exe head.png segment.png README.md
           dest: windows_binaries.zip
       #auto release
       - uses: "marvinpinto/action-automatic-releases@latest"
@@ -88,7 +88,7 @@ jobs:
           pip install -r src/requirements.txt
       - name: PyInstaller Windows Client
         run:
-          python3 -m PyInstaller src/client2.spec
+          python3 -m PyInstaller src/client.spec
       - name: PyInstaller Windows Server
         run:
           python3 -m PyInstaller src/server.spec
@@ -106,7 +106,7 @@ jobs:
       #zip up files
       - uses: papeloto/action-zip@v1
         with:
-          files: dist/client2.exe dist/server.exe head.png segment.png README.md
+          files: dist/client.exe dist/server.exe head.png segment.png README.md
           dest: windows_binaries_x86.zip
       #auto release
       - uses: "marvinpinto/action-automatic-releases@latest"

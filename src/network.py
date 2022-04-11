@@ -54,7 +54,7 @@ class HandshakeInit(Packet):
         self.name = name
         self.secret = secret
 
-        #if type(self.name) != str or type(self.secret) != str:
+        # if type(self.name) != str or type(self.secret) != str:
         #    raise InvalidPacketError(
         #        f"Bad argument types: name<{type(self.name)}> should be str, secret<{type(self.secret)}> should be str")
 
@@ -79,7 +79,7 @@ class HandshakeRespond(Packet):
         self.accepted = accepted
         self.reason = reason
 
-        #if type(self.accepted) != bool or type(self.reason) != str:
+        # if type(self.accepted) != bool or type(self.reason) != str:
         #    raise InvalidPacketError("Bad types for HandshakeRespond")
 
     def save(self):
@@ -117,7 +117,7 @@ class HandshakeGameInfo(Packet):
         self.border = border
         self.max_turn = max_turn
 
-        #if type(self.border) != int or type(self.max_turn) != float:
+        # if type(self.border) != int or type(self.max_turn) != float:
         #    raise InvalidPacketError("Bad types for HandshakeGameInfo")
 
     def save(self):
@@ -159,7 +159,7 @@ class C2SUpdateInput(Packet):
         self.angle = angle
         self.sprinting = sprinting
 
-        #if type(self.angle) != float or type(self.sprinting) != bool:
+        # if type(self.angle) != float or type(self.sprinting) != bool:
         #    raise InvalidPacketError("Bad types for C2SUpdateInput")
 
     def save(self):
@@ -206,15 +206,10 @@ class C2SResend(Packet):
 #  Server ==> Client  #
 #######################
 
-class S2CModifySegment(Packet):
-    C2S = False
-    S2C = True
+class NetSegment:
 
-    def __init__(self, uuid="ERROR", ishead=None, isown=None, radius=None, angle=None, pos=None, col=None, idx=None):
-        super().__init__()
-        self.uuid = uuid
+    def __init__(self, ishead=None, radius=None, angle=None, pos=None, col=None, idx=None):
         self.ishead = ishead
-        self.isown = isown
         self.radius = radius
         self.angle = angle
         self.pos = pos
@@ -223,9 +218,7 @@ class S2CModifySegment(Packet):
 
     def save(self):
         return {
-            "uuid": self.uuid,
             "ishead": self.ishead,
-            "isown": self.isown,
             "radius": self.radius,
             "angle": self.angle,
             "pos": self.pos,
@@ -234,26 +227,80 @@ class S2CModifySegment(Packet):
         }
 
     def load(self, packet: dict):
-        self.uuid = str(packet.get("uuid", "ERROR"))
         self.ishead = packet.get("ishead", False)
-        self.isown = packet.get("isown", False)
         self.radius = packet.get("radius", 10)
         self.angle = float(packet.get("angle", 0.0))
         self.pos = tuple(packet.get("pos", (0, 0)))
         self.col = tuple(packet.get("col", (255, 0, 255)))
         self.idx = packet.get("idx", 0)
 
-        packet["uuid"] = str(packet["uuid"])
         packet["angle"] = float(packet["angle"])
         packet["pos"] = tuple(packet["pos"])
         packet["col"] = tuple(packet["col"])
 
-        verify_packet(packet, uuid=str, ishead=bool, isown=bool, radius=int, angle=float, pos=tuple, col=tuple, idx=int)
+        verify_packet(packet, ishead=bool, radius=int, angle=float, pos=tuple, col=tuple, idx=int)
 
         return self
 
 
-class S2CRemoveSegment(Packet):
+class S2CModifySnake(Packet):
+    C2S = False
+    S2C = True
+
+    def __init__(self, uuid="ERROR", isown=False, name="Player", alive=True, mousedown=False, head=None, segments=None):
+        super().__init__()
+        if segments is None:
+            segments = []
+        self.uuid = uuid
+        self.isown = isown
+        self.name = name
+        self.alive = alive
+        self.mousedown = mousedown
+        self.head = head
+        self.segments = segments
+
+        # if type(self.uuid) != str:
+        #    raise InvalidPacketError("Bad types for S2CRemoveSegment")
+
+    def save(self):
+        serialized_head = self.head.save()
+        serialized_segments = []
+        for seg in self.segments:
+            serialized_segments.append(seg.save())
+        return {
+            "uuid": self.uuid,
+            "isown": self.isown,
+            "name": self.name,
+            "alive": self.alive,
+            "mousedown": self.mousedown,
+            "head": serialized_head,
+            "segments": serialized_segments
+        }
+
+    def load(self, packet: dict):
+        self.uuid = str(packet.get("uuid", "ERROR"))
+        self.isown = packet.get("isown", False)
+        self.name = packet.get("name", "Player")
+        self.alive = packet.get("alive", True)
+        self.mousedown = packet.get("mousedown", False)
+        head_dat = packet.get("head", None)
+        self.head = NetSegment()
+        self.head.load(head_dat)
+        serialized_segments = packet.get("segments", [])
+        self.segments = []
+        packet["uuid"] = self.uuid
+        packet["head"] = self.head
+        for seg_dat in serialized_segments:
+            seg = NetSegment()
+            seg.load(seg_dat)
+            self.segments.append(seg)
+
+        verify_packet(packet, uuid=str, isown=bool, name=str, alive=bool, mousedown=bool, head=NetSegment, segments=list)
+
+        return self
+
+
+class S2CRemoveSnake(Packet):
     C2S = False
     S2C = True
 
@@ -261,7 +308,7 @@ class S2CRemoveSegment(Packet):
         super().__init__()
         self.uuid = uuid
 
-        #if type(self.uuid) != str:
+        # if type(self.uuid) != str:
         #    raise InvalidPacketError("Bad types for S2CRemoveSegment")
 
     def save(self):
@@ -314,7 +361,7 @@ class S2CRemoveFood(Packet):
         super().__init__()
         self.uuid = uuid
 
-        #if type(self.uuid) != str:
+        # if type(self.uuid) != str:
         #    raise InvalidPacketError("Bad types for S2CRemoveFood")
 
     def save(self):
@@ -338,7 +385,7 @@ class S2CKill(Packet):
         super().__init__()
         self.msg = msg
 
-        #if type(self.msg) != str:
+        # if type(self.msg) != str:
         #    raise InvalidPacketError("Bad types for S2CKill")
 
     def save(self):
@@ -377,9 +424,9 @@ register(C2SUpdateInput, "c2s_updateinput")
 register(S2CKill, "s2c_kill")
 register(S2CResending, "s2c_resending")
 register(S2CRemoveFood, "s2c_removefood")
-register(S2CRemoveSegment, "s2c_removesegment")
+register(S2CRemoveSnake, "s2c_removesnake")
 register(S2CAddFood, "s2c_addfood")
-register(S2CModifySegment, "s2c_modifyfood")
+register(S2CModifySnake, "s2c_modifysnake")
 
 
 def load_packet(packet: dict):

@@ -18,6 +18,7 @@ sys.path.append(os.path.abspath(sys.argv[0]))
 
 import netstring
 import network
+import profiler
 
 '''thread use:
 t = threading.Thread(target=function_for_thread_to_execute)
@@ -96,6 +97,17 @@ class Snake:
         self.uuid = uuid
         self.last_update = time.time()
         self.last_message = time.time()
+        self.disconnect_time = -1
+
+    def send_update_msg(self):
+        head = network.NetSegment(ishead=True, radius=self.head.radius, angle=self.head.angle, pos=self.head.pos, col=self.head.color, idx=0)
+        segments = []
+        idx = 0
+        for seg in self.segments:
+            idx += 1
+            segments.append(network.NetSegment(ishead=False, radius=seg.radius, angle=seg.angle, pos=seg.pos, col=seg.color, idx=idx))
+        send_update(network.S2CModifySnake(uuid=self.uuid, isown=True, name=self.name, alive=self.alive, mousedown=self.mousedown, head=head, segments=segments), uuid=self.uuid)
+        send_update(network.S2CModifySnake(uuid=self.uuid, isown=False, name=self.name, alive=self.alive, mousedown=self.mousedown, head=head, segments=segments), blacklist_uuid=self.uuid)
 
 
 def gen_uuid():
@@ -179,7 +191,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                 snakes[uuid] = snake
                 print("Accepted client!")
 
-                spawn_radius = BORDER_DISTANCE - 75
+                spawn_radius = BORDER_DISTANCE - (75*2)
                 spawn_pos = (random.randint(-spawn_radius, spawn_radius), random.randint(-spawn_radius, spawn_radius))
                 while dist(spawn_pos[0], spawn_pos[1], 0, 0) > spawn_radius:
                     spawn_pos = (random.randint(-spawn_radius, spawn_radius),
@@ -193,8 +205,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                     snake.segments.append(Segment(add_seg_pos(snake.head, snake.segments), uuid, seg_uuid, snake,
                                                   color=(random.randint(10, 245), random.randint(10, 245),
                                                          random.randint(10, 245)), radius=15, is_head=False))
-                for seg in snake.segments:
-                    seg.send_update_msg()
+                snake.send_update_msg()
                 # del snake
                 print(f"Spawned {START_LENGTH} segments")
 
@@ -267,16 +278,22 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
             if len(read) == 1:
                 _, message = netstring.sockget(self.request)
                 # print(f"Got message: {message}")
-                loaded_packet = network.load_packet(json.loads(message))
-                if type(loaded_packet) == network.C2SQuit:
-                    kill(uuid, "Quit")
-                elif type(loaded_packet) == network.C2SUpdateInput:
-                    with snakes_lock:
-                        sn = snakes[uuid]
-                        sn.mousedown = loaded_packet.sprinting
-                        sn.mouseangle = loaded_packet.angle
-                        sn.last_message = time.time()
-                        # del sn
+                try:
+                    loaded_packet = network.load_packet(json.loads(message))
+                    if type(loaded_packet) == network.C2SQuit:
+                        kill(uuid, "Quit")
+                        with snakes_lock:
+                            snakes[uuid].disconnect_time = 0
+                    elif type(loaded_packet) == network.C2SUpdateInput:
+                        with snakes_lock:
+                            sn = snakes[uuid]
+                            sn.mousedown = loaded_packet.sprinting
+                            sn.mouseangle = loaded_packet.angle
+                            sn.last_message = time.time()
+                            # del sn
+                except json.decoder.JSONDecodeError:
+                    pass
+                    # print(f"Got erroring message {message}")
 
             # Send all updates
             # print("Waiting to send")
@@ -295,14 +312,30 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
             with snakes_lock:
                 snake = snakes[uuid]
                 if not snake.alive:
-                    print("OOPS")
-                    self.request.close()
-                    playing = False
-                    # stop_input_flag.set()
-                    del updates[uuid]
-                    with snakes_lock:
+                    #print("OOPS")
+                    if snake.disconnect_time == -1:
+                        snake.disconnect_time = time.time()+3
+                        print(f"Will disconnect {uuid} in 3 seconds")
+                    elif time.time() >= snake.disconnect_time:
+                        print(f"Disconnected {uuid}")
+                        print("Sending updates")
+                        my_updates = updates[uuid]
+                        while not my_updates.empty():
+                            # if type(my_updates[timestamp]) != network.S2CAddFood:
+                            #    print(f"{Fore.RED}Sending packet: {my_updates[timestamp]}{Style.RESET_ALL}")
+                            send_packet(my_updates.get())
+                        print("Updates sent")
+                        self.request.close()
+                        print("Closed connection")
+                        playing = False
+                        # stop_input_flag.set()
+                        del updates[uuid]
                         del snakes[uuid]
-                    raise Exception("KILLED A SNAKE BAAAAAADDDDDDD")
+                    else:
+                        # print(f"Disconnecting {uuid} in {snake.disconnect_time-time.time(): .2f} seconds")
+                        pass
+                    #print("DONE OOPSING")
+                    #raise Exception("KILLED A SNAKE BAAAAAADDDDDDD")
             # print(f"{Fore.GREEN}network sleeping{Style.RESET_ALL}")
             ####time.sleep(1)
         print("BYYYYEEEEEEEEEEE")
@@ -354,7 +387,7 @@ class Segment(pygame.sprite.Sprite):
         self.rect.x = self.pos[0] - self.rect.width / 2
         self.rect.y = self.pos[1] - self.rect.height / 2
         self.cache_hash = None
-        self.send_update_msg()
+        # self.send_update_msg()
 
     def gen_cache_hash(self):
         return hash((self.uuid, self.is_head, self.radius, self.angle, self.pos, self.color))
@@ -362,7 +395,7 @@ class Segment(pygame.sprite.Sprite):
     def send_update_msg(self):
         new_cache_hash = self.gen_cache_hash()
         if self.cache_hash != new_cache_hash:
-            idx = 0
+            '''idx = 0
             if not self.is_head:
                 for seg in self.parent_snake.segments:
                     idx += 1
@@ -373,7 +406,8 @@ class Segment(pygame.sprite.Sprite):
             send_update(packet, blacklist_uuid=self.snake_uuid)
             ownerpacket = network.S2CModifySegment(uuid=self.uuid, ishead=self.is_head, isown=True, radius=self.radius,
                                                    angle=self.angle, pos=self.pos, col=self.color, idx=idx)
-            send_update(ownerpacket, uuid=self.snake_uuid)
+            send_update(ownerpacket, uuid=self.snake_uuid)'''
+            self.parent_snake.send_update_msg()
             self.cache_hash = new_cache_hash
 
     def update(self, dtime):
@@ -417,7 +451,7 @@ class Segment(pygame.sprite.Sprite):
 
         self.rect.x = self.pos[0] - self.rect.width / 2
         self.rect.y = self.pos[1] - self.rect.height / 2
-        self.send_update_msg()
+        # self.send_update_msg()
 
 
 class Food(pygame.sprite.Sprite):
@@ -469,9 +503,9 @@ class Food(pygame.sprite.Sprite):
         if out_of_range:
             # print("deleting...")
             send_update(network.S2CRemoveFood(self.uuid))
-            print(f"{Fore.CYAN}deleting self{Style.RESET_ALL}")
-            del foods[self.uuid]
-            return
+            #print(f"{Fore.CYAN}requesting self deletion{Style.RESET_ALL}")
+            #del foods[self.uuid]
+            return True
         else:
             if self.energy > 1:
                 if random.randint(0, 100000) == 0:
@@ -568,14 +602,29 @@ def gen_border_death_msg():
     ])
 
 
-def kill(uuid, msg):
+def kill(uuid, msg, already_locked=False):
     global snakes
-    with snakes_lock:
+    #print(f"Killing snake {uuid} with msg: {msg}")
+    #print("Waiting for lock to kill")
+    if not already_locked:
+        snakes_lock.acquire()
+    send_kill = False
+    if snakes[uuid].alive:
+        # Needs to be locked
+        #print("Kill lock received")
         snakes[uuid].alive = False
-        for seg in snakes[uuid].segments:
-            seg_uuid = seg.uuid
-            send_update(network.S2CRemoveSegment(uuid=seg_uuid))
-    send_update(network.S2CKill(msg=msg))
+        snakes[uuid].segments = []
+        #print("Kill sending update")
+        snakes[uuid].send_update_msg()
+        #print("Kill sent update")
+        send_kill = True
+    if not already_locked:
+        snakes_lock.release()
+    # No locks needed
+    if send_kill:
+        print("Done updating snake, sending S2CKill")
+        send_update(network.S2CKill(msg=msg))
+        print("S2CKill sent")
     # remove this client from active_connections
     # debug(lambda: print(
     #    f"killing ip: {snake['ip']}, uuid: {snake['uuid']}, killer: {killer_name}, name: {snake['name']}"))
@@ -647,7 +696,8 @@ def update_snake(uuid, dtime_override=None):
             if len(segs) > 0:
                 seg = segs.pop()
                 seg.kill()
-                send_update(network.S2CRemoveSegment(uuid=seg.uuid))
+                #send_update(network.S2CRemoveSegment(uuid=seg.uuid))
+                snake.send_update_msg()
 
         # print("Checkpoint 1")
         # let's start by seeing if this snake is ded
@@ -657,7 +707,7 @@ def update_snake(uuid, dtime_override=None):
                 for seg in enemy.segments:
                     if collision_circle(seg.rect.x, seg.rect.y, seg.radius, head.rect.x, head.rect.y, head.radius):
                         print(f"{Fore.RED}Killing snake from bumping into snake{Style.RESET_ALL}")
-                        kill(uuid, gen_killed_msg(enemy.name))
+                        kill(uuid, gen_killed_msg(enemy.name), True)
                         # add mass
                         for ded in segs:
                             tmp_uuid = gen_uuid()
@@ -669,8 +719,8 @@ def update_snake(uuid, dtime_override=None):
                                                    energy=DEAD_MASS)
                         return None
         if dist(head.pos[0], head.pos[1], 0, 0) > BORDER_DISTANCE:
-            print(f"{Fore.RED}Snake killed OOF{Style.RESET_ALL}")
-            kill(snake, gen_border_death_msg())
+            ####print(f"{Fore.RED}Snake killed OOF{Style.RESET_ALL}")
+            kill(snake.uuid, gen_border_death_msg(), True)
             return None
         # print("Checkpoint 2")
         # screen.fill((0,0,0))
@@ -852,6 +902,7 @@ def update_snake(uuid, dtime_override=None):
                 message['food'].append([f.pos, f.color, f.radius, f.energy])
         send_update(snake['ip'], snake['uuid'], message)'''
         snake.last_update = time.time()
+        snake.send_update_msg()
         # print("Lock should release soon")
     # print("Lock released")
 
@@ -903,14 +954,19 @@ if __name__ == "__main__":
                     # print(f"Updating snake uuid {sn_uuid}")
                     update_snake(sn_uuid, 1 / 40)
                     # print(f"Done updating snake uuid {sn_uuid}")
-                '''for f_uuid in foods:
+                fuuid_to_remove = []
+                for f_uuid in foods:
                     #print(f"Updating food uuid {f_uuid}")
-                    foods[f_uuid].update()
+                    if foods[f_uuid].update():
+                        fuuid_to_remove.append(f_uuid)
                     #print(f"Done updating food uuid {f_uuid}")
                     #print("More data")
                     #print("Does this get run?")
                     #print("OK..........")
                     #print("Weird stuff happening")#'''
+                for f_uuid in fuuid_to_remove:
+                    del foods[f_uuid]
+                del fuuid_to_remove
                 # print("Outside of for loop...")
                 # print(f"After Number of snakes: {len(snakes)}\nAfter Number of foods: {len(foods)}")
             except KeyboardInterrupt:

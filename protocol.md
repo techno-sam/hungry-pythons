@@ -16,11 +16,26 @@
 * **Resend** `{}`
   * Requests server to resend all game items (segments and food)
 
+##Snake Class
+class Snake:
+    def __init__(self, uuid):
+        self.head = None
+        self.segments = []
+        self.name = "Player"
+        self.secret = ""
+        self.alive = True
+        self.mousedown = False
+        self.mouseangle = 0
+        self.uuid = uuid
+        self.last_update = time.time()
+        self.last_message = time.time()
+
 ##Server-To-Client (S2C)
-* **Modify Segment** `{str uuid, bool ishead, bool isown, num radius, num angle, tup pos(num x, num y), tup col(num r, num g, num b), num idx}`
-  * Adds if segment does not exist yet
-  * `idx` is index in snake (head 0, first segment 1, etc...)
-* **Remove Segment** `{str uuid}`
+* **Modify Snake** `{str uuid, bool isown, str name, bool alive, bool mousedown, Segment head, Segment[] segments}`
+  * **Segment** `{bool ishead, num radius, num angle, tup pos(num x, num y), tup col(num r, num g, num b), num idx}`
+    * Adds if segment does not exist yet
+    * `idx` is index in snake (head 0, first segment 1, etc...)
+* **Remove Snake** `{str uuid}`
 * **Add Food** `{str uuid, tup pos(num x, num y), tup col(num r, num g, num b), num radius, num energy}`
 * **Remove Food** `{str uuid}`
 * **Kill** `{(opt)str msg}`

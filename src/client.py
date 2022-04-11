@@ -9,6 +9,7 @@ import time
 import random
 import threading
 import netstring
+import profiler
 import network
 import json
 import socket
@@ -138,7 +139,7 @@ print("Connected")
 
 def send_packet(packet: network.Packet):
     text_packet = json.dumps(network.save_packet(packet))
-    #print(f"Sending packet:\n{text_packet}")
+    # print(f"Sending packet:\n{text_packet}")
     netstring.socksend(sock, text_packet)
 
 
@@ -255,15 +256,26 @@ base_head = pygame.image.load(resource_path("assets/head.png"))
 base_seg = pygame.image.load(resource_path("assets/segment.png"))
 
 
+class Snake:
+    def __init__(self, uuid):
+        self.head = None
+        self.segments = []
+        self.name = "Player"
+        self.alive = True
+        self.mousedown = False
+        self.mouseangle = 0
+        self.uuid = uuid
+        self.death_msg = ""
+
+
 class Segment(pygame.sprite.Sprite):
-    def __init__(self, pos, uuid, color=(0, 125, 255), radius=15, is_head=False, is_self=False, angle=0, idx=0):
+    def __init__(self, pos, color=(0, 125, 255), radius=15, is_head=False, is_self=False, angle=0, idx=0):
         pygame.sprite.Sprite.__init__(self)
         self.pos = tuple(pos)
         self.color = tuple(color)
         self.radius = radius
         self.is_head = is_head
         self.is_self = is_self
-        self.uuid = uuid
         global seg_images, head_images, base_head, base_seg, color_precision, args
         '''try:
             self.image = images[(self.color,radius)]
@@ -395,59 +407,83 @@ class Food(pygame.sprite.Sprite):
 # head = Segment((100,100),is_head=True,color=(200,14,150),radius=20)
 # g = pygame.sprite.Group(head)
 
-class ExtraData:
-    def __init__(self):
-        self.alive = True
-        self.death_msg = ""
-
-
-head_mutex = threading.Lock()
-segs_mutex = threading.Lock()
+snakes_mutex = threading.Lock()
 foods_mutex = threading.Lock()
-extra_data_mutex = threading.Lock()
 
-extra_data = ExtraData()
-head = Segment((0, 0), gen_uuid(), is_head=True, color=(0, 255, 0), radius=20)
-segs = {}  # uuid:Segment
+self_uuid = None
+snakes = {}  # uuid:Snake
 foods = {}  # uuid:Food
 
 
-def network_thread():
-    global head, head_mutex, segs_mutex, sock, foods_mutex, extra_data_mutex, extra_data, segs, foods
-    while True:
+def network_thread(stop_flag):
+    global snakes, snakes_mutex, sock, foods_mutex, foods, self_uuid
+    while not stop_flag.is_set():
         _, msg = netstring.sockget(sock)
         loaded = network.load_packet(json.loads(msg))
         if type(loaded) == network.S2CKill:
-            with extra_data_mutex:
-                print("We are killed")
-                extra_data.alive = False
-                extra_data.death_msg = loaded.msg
+            print("Kill message received: "+str(loaded.__dict__))
+            with snakes_mutex:
+                print(f"We are killed for reason: {loaded.msg}")
+                snakes[self_uuid].alive = False
+                snakes[self_uuid].death_msg = loaded.msg
+                sock.close()
+                return
         elif type(loaded) == network.S2CRemoveFood:
             with foods_mutex:
                 try:
                     del foods[loaded.uuid]
                 except KeyError:
                     print(f"Failed to delete food with uuid {loaded.uuid}")
-        elif type(loaded) == network.S2CRemoveSegment:
-            with segs_mutex:
-                del segs[loaded.uuid]
+        elif type(loaded) == network.S2CRemoveSnake:
+            if loaded.uuid != self_uuid:
+                with snakes_mutex:
+                    del snakes[loaded.uuid]
+            else:
+                with snakes_mutex:
+                    print(
+                        f"Being requested to remove own snake, we are {'alive' if snakes[loaded.uuid].alive else 'dead'}.")
         elif type(loaded) == network.S2CAddFood:
             new_food = Food(loaded.pos, loaded.uuid, color=loaded.col, radius=loaded.radius, energy=loaded.energy)
             with foods_mutex:
                 foods[loaded.uuid] = new_food
-        elif type(loaded) == network.S2CModifySegment:
-            if loaded.ishead and loaded.isown:
-                with head_mutex:
-                    head = Segment(loaded.pos, loaded.uuid, color=loaded.col, radius=loaded.radius,
-                                   is_head=loaded.ishead, is_self=loaded.isown, angle=loaded.angle)
-            else:
-                with segs_mutex:
-                    segs[loaded.uuid] = Segment(loaded.pos, loaded.uuid, color=loaded.col, radius=loaded.radius,
-                                                is_head=loaded.ishead, is_self=loaded.isown, angle=loaded.angle,
-                                                idx=loaded.idx)
+        elif type(loaded) == network.S2CModifySnake:
+            with snakes_mutex:
+                """
+                self.uuid = uuid
+                self.isown = isown
+                self.name = name
+                self.alive = alive
+                self.mousedown = mousedown
+                self.head = head
+                self.segments = segments
+                """
+                snake = None
+                try:
+                    snake = snakes[loaded.uuid]
+                except KeyError:
+                    snake = Snake(loaded.uuid)
+                    snakes[loaded.uuid] = snake
+                snake.name = loaded.name
+                snake.alive = loaded.alive
+                if loaded.isown:
+                    self_uuid = loaded.uuid
+                    #print(f"Set self_uuid to {self_uuid}")
+                if not snake.alive:
+                    print(f"Snake with uuid {loaded.uuid} died. Reason: unknown")
+                if self_uuid != loaded.uuid:
+                    snake.mousedown = loaded.mousedown
+                snake.head = Segment(loaded.head.pos, color=loaded.head.col, radius=loaded.head.radius,
+                                     is_head=True, is_self=loaded.isown, angle=loaded.head.angle, idx=loaded.head.idx)
+                snake.segments = []
+                for netseg in loaded.segments:
+                    snake.segments.append(Segment(netseg.pos, color=netseg.col, radius=netseg.radius,
+                                                  is_head=False, is_self=loaded.isown, angle=netseg.angle,
+                                                  idx=netseg.idx))
+    print("Network thread exiting...")
 
 
-networkThread = threading.Thread(target=network_thread)
+stopNetworkFlag = threading.Event()
+networkThread = threading.Thread(target=network_thread, args=(stopNetworkFlag,), daemon=True)
 
 
 def dist(x1, y1, x2, y2):
@@ -498,176 +534,199 @@ mousedown = False
 # sprint_mult = 1.75
 ###inputThread.start()
 networkThread.start()
+
+while self_uuid is None:
+    print("Waiting for self_uuid...")
+print(f"self_uuid is now {self_uuid}")
+while self_uuid not in snakes.keys():
+    print(f"Waiting for {self_uuid} to be in {snakes.keys()}")
+while snakes[self_uuid].head is None:
+    print(f"Waiting for head...")
+print(snakes)
+
 kg = True
 first_run = True
-while kg:
-    # segImQueue.put([[seg_hue,15],seg_img])
-    if not first_run:
-        for i in range(2):
-            if not segImQueue.empty():
-                tmp = segImQueue.get()
-                seg_images[tuple(tmp[0])] = tmp[1].copy()
-                percent = round(tmp[0][0] * 100, 2)
-                print(f"{percent}% done.    \r", end="")
-                # print(f"seg_images[{tuple(tmp[0])}] = tmp[1].copy()")
-    first_run = False
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            # global shouldGetInput
-            kg = False
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            mousedown = True
-        if event.type == pygame.MOUSEBUTTONUP:
-            mousedown = False
-    # mp = None
-    mp = pygame.mouse.get_pos()
-    # handle sprinting
-    sprinting = mousedown and (len(segs) > 10)
+clock = profiler.Profiler()
+try:
+    while kg:
+        # segImQueue.put([[seg_hue,15],seg_img])
+        if not first_run:
+            for i in range(2):
+                if not segImQueue.empty():
+                    tmp = segImQueue.get()
+                    seg_images[tuple(tmp[0])] = tmp[1].copy()
+                    percent = round(tmp[0][0] * 100, 2)
+                    print(f"{percent}% done.    \r", end="")
+                    # print(f"seg_images[{tuple(tmp[0])}] = tmp[1].copy()")
+        first_run = False
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                # global shouldGetInput
+                kg = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mousedown = True
+            if event.type == pygame.MOUSEBUTTONUP:
+                mousedown = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
+                    kg = False
+        # mp = None
+        mp = pygame.mouse.get_pos()
+        # handle sprinting
+        sprinting = mousedown and (len(snakes[self_uuid].segments) > 10)
 
-    # Send Main Communications
-    # global head_rot
-    # temp_rot = head.goal_angle
-    temp_rot = get_dif_angles(head.angle, head.goal_angle)
-    # MAX_TURN = math.pi/90
-    if temp_rot > MAX_TURN:
-        temp_rot = MAX_TURN
-    if temp_rot < MAX_TURN:
-        temp_rot = -MAX_TURN
-    head_rot = math.degrees(temp_rot + head.angle)  # head.goal_angle)
-    # print(f"head_rot: {head_rot}, goal_angle: {math.degrees(head.goal_angle)}, angle: {math.degrees(head.angle)}")
-    if head is not None:
-        packet = network.C2SUpdateInput(angle=float(head.goal_angle), sprinting=sprinting)
-    else:
-        packet = network.C2SUpdateInput(angle=float(0), sprinting=sprinting)
-    # print("sending: ",pickle.loads(send_bytes))
-    send_packet(packet)
-
-
-    # End Send Main Communications
-
-    def text(screen, draw_string, pos, size=48, color=(255, 255, 255), auto=False, Font="Times"):
-        font = pygame.font.Font(resource_path('assets/FreeSerif.ttf'), size)
-        text = font.render(draw_string, True, color)
-        text_rect = text.get_rect()
-        text_rect.centerx = pos[0]  # was text_rect.centerx = pos[0]
-        text_rect.y = pos[1]
-        screen.blit(text, text_rect)
-        # print("gutil.text() run...")
-        if auto:
-            pygame.display.update()
+        # Send Main Communications
+        # global head_rot
+        # temp_rot = head.goal_angle
+        temp_rot = get_dif_angles(snakes[self_uuid].head.angle, snakes[self_uuid].head.goal_angle)
+        # MAX_TURN = math.pi/90
+        if temp_rot > MAX_TURN:
+            temp_rot = MAX_TURN
+        if temp_rot < MAX_TURN:
+            temp_rot = -MAX_TURN
+        head_rot = math.degrees(temp_rot + snakes[self_uuid].head.angle)  # head.goal_angle)
+        # print(f"head_rot: {head_rot}, goal_angle: {math.degrees(head.goal_angle)}, angle: {math.degrees(head.angle)}")
+        if snakes[self_uuid].head is not None:
+            packet = network.C2SUpdateInput(angle=float(snakes[self_uuid].head.goal_angle), sprinting=sprinting)
+        else:
+            packet = network.C2SUpdateInput(angle=float(0), sprinting=sprinting)
+        # print("sending: ",pickle.loads(send_bytes))
+        send_packet(packet)
 
 
-    # Process Incoming Communications
-    with extra_data_mutex:
-        if not extra_data.alive:
-            print("Yeah, we should show we are dead")
-            text(screen, extra_data.death_msg,
-                 (round(screen.get_width() / 2), round(screen.get_height() / 2)))
-            print(extra_data.death_msg)
-            pygame.display.update()
-            kg = False
-            break
+        # End Send Main Communications
 
-    # End Process Incoming Communications
+        def text(screen, draw_string, pos, size=48, color=(255, 255, 255), auto=False, Font="Times"):
+            font = pygame.font.Font(resource_path('assets/FreeSerif.ttf'), size)
+            text = font.render(draw_string, True, color)
+            text_rect = text.get_rect()
+            text_rect.centerx = pos[0]  # was text_rect.centerx = pos[0]
+            text_rect.y = pos[1]
+            screen.blit(text, text_rect)
+            # print("gutil.text() run...")
+            if auto:
+                pygame.display.update()
 
-    # mp = ((screen.get_width()//2)-mp[0],(screen.get_height()//2)-mp[1])
-    # print(mp)
 
-    screen.fill((255, 0, 0))
-    # temp_surf = pygame.Surface((BORDER_DISTANCE*2,BORDER_DISTANCE*2))
-    temp_x = 0
-    temp_y = 0
-    center = (screen.get_width() / 2, screen.get_height() / 2)
-    dest = (0, 0)
-    origin = (head.rect.x, head.rect.y)
-    temp_pos = (round((center[0] - origin[0]) + dest[0]), round((center[1] - origin[1]) + dest[1]))
-    pygame.draw.circle(screen, (0, 0, 0), temp_pos, BORDER_DISTANCE)
-    # blit_centered(screen, temp_surf, (0,0), (head.rect.x,head.rect.y))
+        # Process Incoming Communications
+        with snakes_mutex:
+            if not snakes[self_uuid].alive:
+                print("Yeah, we should show we are dead")
+                text(screen, snakes[self_uuid].death_msg,
+                     (round(screen.get_width() / 2), round(screen.get_height() / 2)))
+                print(snakes[self_uuid].death_msg)
+                pygame.display.update()
+                kg = False
+                break
 
-    # handle head
-    with head_mutex:
-        head.goal_angle = math.atan2(mp[1] - screen.get_height() / 2, mp[0] - screen.get_width() / 2)
-        center_x = head.rect.x
-        center_y = head.rect.y
-    # draw food
-    with foods_mutex:
-        for food_uuid in foods:
-            food = foods[food_uuid]
-            # print("updating a food: ",food)
-            food.update()
-            blit_centered(screen, food.image, (food.rect.x, food.rect.y), (center_x, center_y))
+        # End Process Incoming Communications
 
-    max_enemy_idx = -1
-    max_own_idx = -1
-    own_segs = {}  # idx:Segment[]
-    enemy_segs = {}  # idx:Segment[]
-    # update segments
-    with segs_mutex:
-        for seg_uuid in segs:
-            seg = segs[seg_uuid]
-            seg.update()
+        # mp = ((screen.get_width()//2)-mp[0],(screen.get_height()//2)-mp[1])
+        # print(mp)
 
-            # Compute order for rendering
-            if seg.is_self:
-                try:
-                    _ = own_segs[seg.idx]
-                except KeyError:
-                    own_segs[seg.idx] = []
-                own_segs[seg.idx].append(seg)
-                if seg.idx > max_own_idx:
-                    max_own_idx = seg.idx
-            else:
-                try:
-                    _ = enemy_segs[seg.idx]
-                except KeyError:
-                    enemy_segs[seg.idx] = []
-                enemy_segs[seg.idx].append(seg)
-                if seg.idx > max_enemy_idx:
-                    max_enemy_idx = seg.idx
+        screen.fill((255, 0, 0))
+        # temp_surf = pygame.Surface((BORDER_DISTANCE*2,BORDER_DISTANCE*2))
+        temp_x = 0
+        temp_y = 0
+        center = (screen.get_width() / 2, screen.get_height() / 2)
+        dest = (0, 0)
+        origin = (snakes[self_uuid].head.rect.x, snakes[self_uuid].head.rect.y)
+        temp_pos = (round((center[0] - origin[0]) + dest[0]), round((center[1] - origin[1]) + dest[1]))
+        pygame.draw.circle(screen, (0, 0, 0), temp_pos, BORDER_DISTANCE)
+        # blit_centered(screen, temp_surf, (0,0), (head.rect.x,head.rect.y))
 
-    # render snake
-    #temp_segs = segs.copy()
-    #temp_segs.reverse()
-    #for seg in temp_segs:
-    #    blit_centered(screen, seg.image, (seg.rect.x, seg.rect.y), (center_x, center_y))
-    for i in range(max_enemy_idx, 0, -1):
-        try:
-            for seg in enemy_segs[i]:
-                blit_centered(screen, seg.image, (seg.rect.x, seg.rect.y), (center_x, center_y))
-        except KeyError:
-            pass
-    for i in range(max_own_idx, 0, -1):
-        try:
-            for seg in own_segs[i]:
-                blit_centered(screen, seg.image, (seg.rect.x, seg.rect.y), (center_x, center_y))
-        except KeyError:
-            pass
-    with head_mutex:
-        blit_centered(screen, head.image, (head.rect.x, head.rect.y), (center_x, center_y))
-    del own_segs, enemy_segs
+        # handle head
+        with snakes_mutex:
+            snakes[self_uuid].head.goal_angle = math.atan2(mp[1] - screen.get_height() / 2, mp[0] - screen.get_width() / 2)
+            center_x = snakes[self_uuid].head.rect.x
+            center_y = snakes[self_uuid].head.rect.y
+        # draw food
+        with foods_mutex:
+            for food_uuid in foods:
+                food = foods[food_uuid]
+                # print("updating a food: ",food)
+                food.update()
+                blit_centered(screen, food.image, (food.rect.x, food.rect.y), (center_x, center_y))
 
-    # pygame.draw.circle(screen, (255,255,0), mp, 10)
-    # end render
-    # g.draw(screen)
-    '''if len(segs)>0:
-        last_seg = segs[len(segs)-1]
-        last_seg_rev_angle = last_seg.angle+math.pi
-        behind_dist = last_seg.radius/2
-        nx = last_seg.pos[0]
-        ny = last_seg.pos[1]
-        nx += math.cos(last_seg_rev_angle)*behind_dist
-        ny += math.sin(last_seg_rev_angle)*behind_dist
-        pygame.draw.circle(screen,(255,255,255),(round(nx),round(ny)),15)'''
-    # pygame.draw.circle(screen,(255,255,255),(0,0),30)
-    # real_screen.fill((255,0,0))
-    # real_screen.blit(screen,(-(head.pos[0]-real_screen.get_width()//2),-(head.pos[1]-real_screen.get_height()//2)))
-    pygame.display.update()
+        max_enemy_idx = -1
+        max_own_idx = -1
+        own_segs = {}  # idx:Segment[]
+        enemy_segs = {}  # idx:Segment[]
+        # update segments
+        with snakes_mutex:
+            for snake_uuid in snakes:
+                segs = snakes[snake_uuid].segments
+                for seg in segs:
+                    seg.update()
+
+                    # Compute order for rendering
+                    if snake_uuid == self_uuid:
+                        try:
+                            _ = own_segs[seg.idx]
+                        except KeyError:
+                            own_segs[seg.idx] = []
+                        own_segs[seg.idx].append(seg)
+                        if seg.idx > max_own_idx:
+                            max_own_idx = seg.idx
+                    else:
+                        try:
+                            _ = enemy_segs[seg.idx]
+                        except KeyError:
+                            enemy_segs[seg.idx] = []
+                        enemy_segs[seg.idx].append(seg)
+                        if seg.idx > max_enemy_idx:
+                            max_enemy_idx = seg.idx
+
+        # render snake
+        # temp_segs = segs.copy()
+        # temp_segs.reverse()
+        # for seg in temp_segs:
+        #    blit_centered(screen, seg.image, (seg.rect.x, seg.rect.y), (center_x, center_y))
+        for i in range(max_enemy_idx, 0, -1):
+            try:
+                for seg in enemy_segs[i]:
+                    blit_centered(screen, seg.image, (seg.rect.x, seg.rect.y), (center_x, center_y))
+            except KeyError:
+                pass
+        for i in range(max_own_idx, 0, -1):
+            try:
+                for seg in own_segs[i]:
+                    blit_centered(screen, seg.image, (seg.rect.x, seg.rect.y), (center_x, center_y))
+            except KeyError:
+                pass
+        with snakes_mutex:
+            blit_centered(screen, snakes[self_uuid].head.image, (snakes[self_uuid].head.rect.x, snakes[self_uuid].head.rect.y), (center_x, center_y))
+        del own_segs, enemy_segs
+
+        # pygame.draw.circle(screen, (255,255,0), mp, 10)
+        # end render
+        # g.draw(screen)
+        '''if len(segs)>0:
+            last_seg = segs[len(segs)-1]
+            last_seg_rev_angle = last_seg.angle+math.pi
+            behind_dist = last_seg.radius/2
+            nx = last_seg.pos[0]
+            ny = last_seg.pos[1]
+            nx += math.cos(last_seg_rev_angle)*behind_dist
+            ny += math.sin(last_seg_rev_angle)*behind_dist
+            pygame.draw.circle(screen,(255,255,255),(round(nx),round(ny)),15)'''
+        # pygame.draw.circle(screen,(255,255,255),(0,0),30)
+        # real_screen.fill((255,0,0))
+        # real_screen.blit(screen,(-(head.pos[0]-real_screen.get_width()//2),-(head.pos[1]-real_screen.get_height()//2)))
+        pygame.display.update()
+except KeyboardInterrupt:
+    print("Keyboard interrupted")
 
 send_packet(network.C2SQuit())
 
+print("Killing network thread...")
+stopNetworkFlag.set()
+
+print("Disconnecting in 5 seconds")
 for x in range(5):
     print("Disconnecting in: ", 5 - x, end="\r")
     time.sleep(1)
+
 sock.close()
 sock.detach()
 sock.__exit__()

@@ -219,7 +219,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
             self.request.close()
             return
         print("Sending game info")
-        send_packet(network.HandshakeGameInfo(border=args.border, max_turn=math.pi / 90))
+        send_packet(network.HandshakeGameInfo(border=args.border, max_turn=math.pi / 70))
 
         _, msg = netstring.sockget(self.request)
         loaded = network.load_packet(json.loads(msg))
@@ -268,7 +268,11 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
 
         playing = True
         # client_input_thread.start()
+        # netclock = profiler.Profiler()
+        # netclock.start("play")
         while playing:
+            # print(f"{netclock.end('play'): .4f}")
+            # netclock.start("play")
             # Get client input
             # print(self.request)
             # print(self.request.fileno())
@@ -285,7 +289,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                         with snakes_lock:
                             snakes[uuid].disconnect_time = 0
                     elif type(loaded_packet) == network.C2SUpdateInput:
-                        with snakes_lock:
+                        if True: # with snakes_lock:
                             sn = snakes[uuid]
                             sn.mousedown = loaded_packet.sprinting
                             sn.mouseangle = loaded_packet.angle
@@ -369,7 +373,7 @@ class Segment(pygame.sprite.Sprite):
         self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
         self.target_pos = pos
-        self.max_turn = math.pi / 90  # math.pi/90
+        self.max_turn = math.pi / 70  # math.pi/90
         self.angle = 0
         self.spd_mlt = SPEED  # 6.75#2
         self.speed = 0.5 * self.spd_mlt
@@ -653,6 +657,8 @@ for x in range(iters):
 
 print("Defining update snake")
 
+clock = profiler.Profiler()
+
 
 def update_snake(uuid, dtime_override=None):
     global snakes, foods
@@ -829,6 +835,7 @@ def update_snake(uuid, dtime_override=None):
         # eat food
         search_rad = 15
         foods_to_remove = []
+        # clock.start("food"+str(uuid))
         for food_uuid in foods:
             # print(f"trying to eat food with uuid {food_uuid}")
             food = foods[food_uuid]
@@ -858,6 +865,7 @@ def update_snake(uuid, dtime_override=None):
         for food_uuid in foods_to_remove:
             # print(f"{Fore.YELLOW}Deleting food with uuid {food_uuid}{Style.RESET_ALL}")
             del foods[food_uuid]
+        # print(clock.end("food"+str(uuid)))
         # print("checkpoint 5")
         """#draw food
         for food in foods:
@@ -945,6 +953,7 @@ if __name__ == "__main__":
         print("END SLEEPING")
         last_time = time.time()
         kg = True
+        # updateclock = profiler.Profiler()
         while kg:
             # print("TRYING to do stuff")
             try:
@@ -952,7 +961,9 @@ if __name__ == "__main__":
                 # print(f"Number of snakes: {len(snakes)}\nNumber of foods: {len(foods)}")
                 for sn_uuid in snakes:
                     # print(f"Updating snake uuid {sn_uuid}")
+                    # updateclock.start("SNAKE")
                     update_snake(sn_uuid, 1 / 40)
+                    # print(f"{updateclock.end('SNAKE'): .4f}")
                     # print(f"Done updating snake uuid {sn_uuid}")
                 fuuid_to_remove = []
                 for f_uuid in foods:

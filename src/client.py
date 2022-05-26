@@ -185,7 +185,7 @@ print("Joined server...")
 
 pygame.init()
 
-screen = pygame.display.set_mode([1100, 900])
+screen = pygame.display.set_mode([1100, 900]) #1100, 900
 
 
 # screen = pygame.Surface((7000,7000))

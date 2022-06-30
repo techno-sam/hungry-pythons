@@ -4,11 +4,11 @@ block_cipher = None
 
 data_files = [("../assets/*","assets")]
 
-a = Analysis(['client2.py'],
+a = Analysis(['client.py'],
              pathex=['/home/sam/bin/0_packaged_programs/hungry_pythons/src'],
              binaries=[],
              datas=data_files,
-             hiddenimports=['pkg_resources.py2_warn','gutil','netstring'],
+             hiddenimports=['pkg_resources.py2_warn','network','netstring', 'profiler'],
              hookspath=[],
              runtime_hooks=[],
              excludes=[],
@@ -24,7 +24,7 @@ exe = EXE(pyz,
           a.zipfiles,
           a.datas,
           [],
-          name='client2',
+          name='client',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
@@ -39,4 +39,4 @@ exe = EXE(pyz,
                strip=False,
                upx=True,
                upx_exclude=[],
-               name='client2')'''
+               name='client')'''

@@ -18,14 +18,14 @@ See [projects](https://github.com/techno-sam/hungry-pythons/projects) tab.
     1. python3 -m pip install --upgrade pip
     1. python3 -m pip install pygame==1.9.6
     1. pip install -r src/requirements.txt
-    1. python3 -m PyInstaller src/client2.spec
+    1. python3 -m PyInstaller src/client.spec
     1. python3 -m PyInstaller src/server.spec
 1. Find the binaries in ./dists/
 
 ## Recommended Parameters
 For client:
 ```shell
-/path/to/client2 --host 127.0.0.1 --port 9999 --view_dist 475
+/path/to/client --host 127.0.0.1 --port 9999 --view_dist 475
 ```
 For server:
 ```shell

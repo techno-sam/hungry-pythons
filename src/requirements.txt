@@ -1,5 +1,6 @@
 future==0.18.2
-numpy==1.22.1
-pyinstaller @ https://github.com/pyinstaller/pyinstaller/archive/master.zip
+numpy==1.23.0
+#pyinstaller @ https://github.com/pyinstaller/pyinstaller/archive/master.zip
 pygame==2.1.2
-colorama==0.4.4
+colorama==0.4.5
+pyinstaller==5.1

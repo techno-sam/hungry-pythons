@@ -3,3 +3,22 @@ build/
 dist/
 src/__pycache__/
 src/secrets.json
+
+# idea
+
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# vscode
+
+.settings/
+.vscode/
+bin/
+.classpath
+.project
+
+# macos
+
+*.DS_Store

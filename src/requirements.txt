@@ -4,3 +4,4 @@ numpy==1.23.0
 pygame==2.1.2
 colorama==0.4.5
 pyinstaller==5.1
+pygase==0.3.1

@@ -4,9 +4,11 @@ New pygase-based system
 ### JOIN C->S
 * name: *str*
 * secret: *str*
+
 ### PLAYER_CREATED S->1C
 * accepted: *bool*
 * msg: *str*
+
 ### *Done, go to play mode*
 
 -----------------------
@@ -20,11 +22,13 @@ New pygase-based system
 * uuid: *str*
 * name: *str* (Not unique)
 * alive: *bool*
+* sprinting: *bool*
 * head: *Segment*
 * segments: *Segment[]*
+
 ### Segment
 * radius: *float*
-* angle: *float-degrees*
+* angle: *float-radians*
 * pos: *tuple*: (x: *int*, y: *int*)
 * col: *tuple*: (r: *int*, g: *int*, b: *int*)
 * uuid: *str*
